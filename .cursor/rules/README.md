@@ -1,0 +1,85 @@
+# OpenFeature AWS AppConfig Provider - プロジェクトルール
+
+このディレクトリには、OpenFeature AWS AppConfig Providerプロジェクトの開発に関するルールとガイドラインが含まれています。
+
+## ルールファイル一覧
+
+### 📋 [general.md](./general.md)
+プロジェクトの一般的なルールとガイドライン
+- プロジェクト概要
+- 基本ルール
+- 開発ガイドライン
+
+### 💻 [coding-standards.md](./coding-standards.md)
+コーディング標準とベストプラクティス
+- Ruby コーディング規約
+- OpenFeature固有の規約
+- パフォーマンス考慮事項
+
+### 🧪 [testing.md](./testing.md)
+テストに関するルールとガイドライン
+- テスト戦略
+- テスト構造
+- 統合テスト
+- パフォーマンステスト
+
+### ☁️ [aws-integration.md](./aws-integration.md)
+AWS AppConfig統合に関するルール
+- AWS SDK使用ガイドライン
+- AppConfig固有の実装
+- セキュリティ考慮事項
+- 監視とログ
+
+### 🎯 [openfeature-spec.md](./openfeature-spec.md)
+OpenFeature仕様準拠のルール
+- OpenFeature仕様概要
+- 評価結果の構造
+- エラー型の定義
+- コンテキスト処理
+
+### 🔄 [development-workflow.md](./development-workflow.md)
+開発ワークフローとCI/CD
+- 開発環境セットアップ
+- Gitワークフロー
+- テスト戦略
+- リリースプロセス
+
+## 使用方法
+
+### 1. 新機能開発時
+1. `general.md`でプロジェクトの基本ルールを確認
+2. `coding-standards.md`でコーディング規約を確認
+3. `openfeature-spec.md`でOpenFeature仕様を確認
+4. `aws-integration.md`でAWS統合のベストプラクティスを確認
+5. `testing.md`でテスト戦略を確認
+6. `development-workflow.md`で開発プロセスを確認
+
+### 2. コードレビュー時
+- 各ルールファイルに従っているかチェック
+- 特にコーディング標準とテストカバレッジを重視
+- OpenFeature仕様への準拠を確認
+
+### 3. リリース準備時
+- 全テストが通ることを確認
+- RuboCopチェックが通ることを確認
+- ドキュメントが最新であることを確認
+- セマンティックバージョニングに従っていることを確認
+
+## ルールの更新
+
+プロジェクトの成長に伴い、これらのルールは定期的に見直し・更新されます。
+
+### 更新手順
+1. 変更が必要なルールファイルを特定
+2. 変更内容を提案
+3. チーム内でレビュー
+4. 承認後にルールを更新
+5. 変更内容をチームに共有
+
+## 質問・提案
+
+ルールについて質問や提案がある場合は、GitHubのIssueを作成してください。
+
+---
+
+**注意**: これらのルールは開発の一貫性と品質を保つために作成されています。すべての開発者はこれらのルールに従うことが期待されています。

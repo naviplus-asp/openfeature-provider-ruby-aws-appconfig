@@ -1,8 +1,44 @@
+require:
+  - rubocop-minitest
+
 AllCops:
+  NewCops: enable
   TargetRubyVersion: 3.1
+  Exclude:
+    - "vendor/**/*"
+    - "node_modules/**/*"
+    - "db/schema.rb"
+    - "bin/**/*"
+  Plugins:
+    - rubocop-minitest
+
+Style/Documentation:
+  Enabled: false
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+# Test files can be longer than regular classes
+Metrics/ClassLength:
+  Exclude:
+    - "test/**/*"
+    - "lib/openfeature/provider/ruby/aws/appconfig/provider.rb"
+    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
+
+# Test methods can be longer than regular methods
+Metrics/MethodLength:
+  Exclude:
+    - "test/**/*"
+    - "lib/openfeature/provider/ruby/aws/appconfig/provider.rb"
+    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
+
+Metrics/AbcSize:
+  Exclude:
+    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
+
+Minitest/MultipleAssertions:
+  Exclude:
+    - "test/**/*"

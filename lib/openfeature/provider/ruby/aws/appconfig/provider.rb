@@ -9,6 +9,8 @@ module Openfeature
     module Ruby
       module Aws
         module Appconfig
+          # OpenFeature provider for AWS AppConfig
+          # Handles feature flag resolution using AWS AppConfig service
           class Provider
             include OpenFeature::SDK::Provider
 
@@ -20,10 +22,15 @@ module Openfeature
               @configuration_profile = config[:configuration_profile] || raise(ArgumentError,
                                                                                "configuration_profile is required")
 
-              @client = config[:client] || Aws::AppConfig::Client.new(
+              client_config = {
                 region: config[:region] || "us-east-1",
                 credentials: config[:credentials]
-              )
+              }
+
+              # Add endpoint URL for LocalStack testing
+              client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
+
+              @client = config[:client] || ::Aws::AppConfig::Client.new(client_config)
             end
 
             def resolve_boolean_value(flag_key, context = nil)
@@ -128,7 +135,7 @@ module Openfeature
 
             private
 
-            def get_configuration_value(flag_key, context)
+            def get_configuration_value(flag_key, _context)
               response = @client.get_configuration(
                 application: @application,
                 environment: @environment,
@@ -138,9 +145,9 @@ module Openfeature
               # Parse the configuration content
               config_data = JSON.parse(response.content.read)
               config_data[flag_key]
-            rescue Aws::AppConfig::Errors::ResourceNotFoundException => e
+            rescue ::Aws::AppConfig::Errors::ResourceNotFoundException => e
               raise StandardError, "Configuration not found: #{e.message}"
-            rescue Aws::AppConfig::Errors::ThrottlingException => e
+            rescue ::Aws::AppConfig::Errors::ThrottlingException => e
               raise StandardError, "Request throttled: #{e.message}"
             rescue JSON::ParserError => e
               raise StandardError, "Failed to parse configuration: #{e.message}"

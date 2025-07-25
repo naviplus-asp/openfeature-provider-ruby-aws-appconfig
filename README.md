@@ -1,43 +1,224 @@
-# Openfeature::Provider::Ruby::Aws::Appconfig
+# OpenFeature AWS AppConfig Provider for Ruby
 
-TODO: Delete this and the text below, and describe your gem
+A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature flag management.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/openfeature/provider/ruby/aws/appconfig`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Features
+
+- ✅ Full OpenFeature specification compliance
+- ✅ AWS AppConfig integration
+- ✅ Support for all data types (boolean, string, number, object)
+- ✅ Comprehensive error handling
+- ✅ Type conversion and validation
+- ✅ Integration tests with LocalStack
+- ✅ Unit tests with mocking
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+Add this line to your application's Gemfile:
 
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+gem "openfeature-provider-ruby-aws-appconfig"
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+And then execute:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+### Basic Usage
+
+```ruby
+require "open_feature/sdk"
+require "openfeature/provider/ruby/aws/appconfig"
+
+# Initialize the OpenFeature client
+client = OpenFeature::SDK::Client.new
+
+# Create and register the AWS AppConfig provider
+provider = Openfeature::Provider::Ruby::Aws::Appconfig.create_provider(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  region: "us-east-1"
+)
+
+client.set_provider(provider)
+
+# Resolve feature flags
+is_feature_enabled = client.get_boolean_value("new-feature", false)
+welcome_message = client.get_string_value("welcome-message", "Welcome!")
+max_retries = client.get_number_value("max-retries", 3)
+user_config = client.get_object_value("user-config", {})
+```
+
+### With Evaluation Context
+
+```ruby
+# Create evaluation context
+context = OpenFeature::EvaluationContext.new(
+  targeting_key: "user-123",
+  attributes: {
+    "country" => "US",
+    "plan" => "premium"
+  }
+)
+
+# Resolve flags with context
+personalized_feature = client.get_boolean_value("personalized-feature", false, context)
+```
+
+### Direct Provider Usage
+
+```ruby
+# Create provider directly
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  region: "us-east-1"
+)
+
+# Resolve flags directly
+result = provider.resolve_boolean_value("feature-flag")
+puts "Value: #{result.value}"
+puts "Variant: #{result.variant}"
+puts "Reason: #{result.reason}"
+```
+
+## Configuration
+
+### Required Parameters
+
+- `application`: The AWS AppConfig application name
+- `environment`: The AWS AppConfig environment name
+- `configuration_profile`: The AWS AppConfig configuration profile name
+
+### Optional Parameters
+
+- `region`: AWS region (default: "us-east-1")
+- `credentials`: AWS credentials (default: uses AWS SDK default credential chain)
+- `endpoint_url`: Custom endpoint URL (useful for LocalStack testing)
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+### Prerequisites
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+- Ruby 3.1 or higher
+- Docker and Docker Compose (for integration tests)
+- AWS CLI (optional, for LocalStack testing)
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd openfeature-provider-ruby-aws-appconfig
+```
+
+2. Install dependencies:
+```bash
+bundle install
+```
+
+3. Setup LocalStack for integration tests:
+```bash
+./scripts/setup_localstack.sh
+```
+
+### Running Tests
+
+#### Unit Tests (with mocking)
+```bash
+bundle exec rake test:unit
+```
+
+#### Integration Tests (with LocalStack)
+```bash
+bundle exec rake test:integration
+```
+
+#### All Tests
+```bash
+bundle exec rake test
+```
+
+#### Docker-based Testing
+```bash
+# Run all tests in Docker with LocalStack
+docker-compose up test-runner
+
+# Run only LocalStack
+docker-compose up localstack
+
+# Stop all services
+docker-compose down
+```
+
+### Test Structure
+
+- **Unit Tests**: Located in `test/openfeature/provider/ruby/aws/`
+  - Use mocking for AWS SDK calls
+  - Fast execution
+  - No external dependencies
+
+- **Integration Tests**: Located in `test/integration/`
+  - Use LocalStack for real AWS AppConfig simulation
+  - Test actual AWS API interactions
+  - More comprehensive but slower
+
+## AWS AppConfig Configuration
+
+### Example Configuration JSON
+
+```json
+{
+  "feature-flag": true,
+  "welcome-message": "Hello World!",
+  "max-retries": 5,
+  "user-config": {
+    "theme": "dark",
+    "language": "en"
+  }
+}
+```
+
+### AWS AppConfig Setup
+
+1. Create an application in AWS AppConfig
+2. Create an environment
+3. Create a configuration profile
+4. Create a configuration version with your JSON
+5. Deploy the configuration
+
+## Error Handling
+
+The provider handles various error scenarios:
+
+- **Configuration Not Found**: Returns error with appropriate message
+- **Throttling**: Handles AWS throttling exceptions
+- **Parse Errors**: Handles JSON parsing errors
+- **Type Conversion**: Graceful handling of type mismatches
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/openfeature-provider-ruby-aws-appconfig. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/openfeature-provider-ruby-aws-appconfig/blob/main/CODE_OF_CONDUCT.md).
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for your changes
+5. Run the test suite
+6. Submit a pull request
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+This gem is available as open source under the terms of the MIT License.
 
-## Code of Conduct
+## Support
 
-Everyone interacting in the Openfeature::Provider::Ruby::Aws::Appconfig project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/openfeature-provider-ruby-aws-appconfig/blob/main/CODE_OF_CONDUCT.md).
+For issues and questions:
+
+1. Check the [OpenFeature specification](https://openfeature.dev/specification/)
+2. Review AWS AppConfig documentation
+3. Open an issue in this repository

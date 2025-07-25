@@ -2,6 +2,7 @@
 
 require "aws-sdk-appconfig"
 require "aws-sdk-appconfigdata"
+require "aws-sdk-core"
 require "json"
 require "securerandom"
 
@@ -20,19 +21,19 @@ module Openfeature
             def initialize(endpoint_url = nil)
               config = {
                 region: "us-east-1",
-                credentials: Aws::Credentials.new("test", "test")
+                credentials: ::Aws::Credentials.new("test", "test")
               }
               config[:endpoint] = endpoint_url if endpoint_url
 
-              @client = Aws::AppConfig::Client.new(config)
+              @client = ::Aws::AppConfig::Client.new(config)
             end
 
             # Creates an AWS AppConfig application
             # @param name [String] The application name
-            # @return [Aws::AppConfig::Types::Application] The created application
+            # @return [::Aws::AppConfig::Types::Application] The created application
             def create_application(name)
               @client.create_application(name: name)
-            rescue Aws::AppConfig::Errors::ConflictException
+            rescue ::Aws::AppConfig::Errors::ConflictException
               # Application already exists
               @client.get_application(application_id: name)
             end
@@ -40,13 +41,13 @@ module Openfeature
             # Creates an AWS AppConfig environment
             # @param application_id [String] The application ID
             # @param environment_name [String] The environment name
-            # @return [Aws::AppConfig::Types::Environment] The created environment
+            # @return [::Aws::AppConfig::Types::Environment] The created environment
             def create_environment(application_id, environment_name)
               @client.create_environment(
                 application_id: application_id,
                 name: environment_name
               )
-            rescue Aws::AppConfig::Errors::ConflictException
+            rescue ::Aws::AppConfig::Errors::ConflictException
               # Environment already exists
               @client.get_environment(
                 application_id: application_id,
@@ -58,7 +59,7 @@ module Openfeature
             # @param application_id [String] The application ID
             # @param profile_name [String] The configuration profile name
             # @param _content_type [String] The content type (default: "application/json")
-            # @return [Aws::AppConfig::Types::ConfigurationProfile] The created configuration profile
+            # @return [::Aws::AppConfig::Types::ConfigurationProfile] The created configuration profile
             def create_configuration_profile(application_id, profile_name, _content_type = "application/json")
               @client.create_configuration_profile(
                 application_id: application_id,
@@ -66,7 +67,7 @@ module Openfeature
                 location_uri: "hosted",
                 type: "AWS.Freeform"
               )
-            rescue Aws::AppConfig::Errors::ConflictException
+            rescue ::Aws::AppConfig::Errors::ConflictException
               # Configuration profile already exists
               @client.get_configuration_profile(
                 application_id: application_id,
@@ -79,7 +80,7 @@ module Openfeature
             # @param profile_name [String] The configuration profile name
             # @param content [String] The configuration content
             # @param content_type [String] The content type (default: "application/json")
-            # @return [Aws::AppConfig::Types::HostedConfigurationVersion] The created configuration version
+            # @return [::Aws::AppConfig::Types::HostedConfigurationVersion] The created configuration version
             def create_hosted_configuration_version(application_id, profile_name, content,
                                                     content_type = "application/json")
               @client.create_hosted_configuration_version(
@@ -94,7 +95,7 @@ module Openfeature
             # @param name [String] The deployment strategy name
             # @param deployment_duration_in_minutes [Integer] Deployment duration in minutes (default: 0)
             # @param growth_factor [Integer] Growth factor percentage (default: 100)
-            # @return [Aws::AppConfig::Types::DeploymentStrategy] The created deployment strategy
+            # @return [::Aws::AppConfig::Types::DeploymentStrategy] The created deployment strategy
             def create_deployment_strategy(name, deployment_duration_in_minutes = 0, growth_factor = 100)
               @client.create_deployment_strategy(
                 name: name,
@@ -102,7 +103,7 @@ module Openfeature
                 growth_factor: growth_factor,
                 replicate_to: "NONE"
               )
-            rescue Aws::AppConfig::Errors::ConflictException
+            rescue ::Aws::AppConfig::Errors::ConflictException
               # Deployment strategy already exists
               @client.get_deployment_strategy(deployment_strategy_id: name)
             end
@@ -112,7 +113,7 @@ module Openfeature
             # @param environment_name [String] The environment name
             # @param profile_name [String] The configuration profile name
             # @param strategy_name [String] The deployment strategy name
-            # @return [Aws::AppConfig::Types::Deployment] The started deployment
+            # @return [::Aws::AppConfig::Types::Deployment] The started deployment
             def start_deployment(application_id, environment_name, profile_name, strategy_name)
               @client.start_deployment(
                 application_id: application_id,

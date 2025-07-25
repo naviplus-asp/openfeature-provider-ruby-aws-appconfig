@@ -11,28 +11,9 @@ module Openfeature
       module Aws
         module Appconfig
           class ProviderTest < Minitest::Test
-            # setupメソッドは初期化のみ
             def setup
-              # カスタムモックでAWSクライアントを作成
-              @mock_content_data = '{"default": "value"}'
-              @mock_content = Object.new
-              def @mock_content.read
-                @mock_content_data
-              end
-              @mock_content.instance_variable_set(:@mock_content_data, @mock_content_data)
-
-              @mock_response = Object.new
-              def @mock_response.content
-                @mock_content
-              end
-              @mock_response.instance_variable_set(:@mock_content, @mock_content)
-
-              @mock_client = Object.new
-              def @mock_client.get_configuration(_application:, _environment:, _configuration_profile:)
-                @mock_response
-              end
-              @mock_client.instance_variable_set(:@mock_response, @mock_response)
-
+              # シンプルなモッククライアントを作成
+              @mock_client = create_mock_client
               @provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
                 application: "test-app",
                 environment: "test-env",
@@ -41,9 +22,44 @@ module Openfeature
               )
             end
 
+            def create_mock_client
+              client = Object.new
+
+              # デフォルトの設定データ
+              client.instance_variable_set(:@config_data, {})
+
+              # get_configurationメソッドを定義
+              def client.get_configuration(application:, environment:, configuration_profile:)
+                # モックレスポンスを作成
+                response = Object.new
+                content = Object.new
+
+                # content.readメソッドを定義
+                def content.read
+                  JSON.generate(@config_data)
+                end
+
+                # response.contentメソッドを定義
+                def response.content
+                  @content
+                end
+
+                response.instance_variable_set(:@content, content)
+                content.instance_variable_set(:@config_data, @config_data)
+                response
+              end
+
+              # 設定データを設定するメソッド
+              def client.set_config_data(data)
+                @config_data = data
+              end
+
+              client
+            end
+
             def mock_configuration_response(content)
-              @mock_content_data = content
-              @mock_content.instance_variable_set(:@mock_content_data, @mock_content_data)
+              config_data = JSON.parse(content)
+              @mock_client.set_config_data(config_data)
             end
 
             def test_resolve_boolean_value_success

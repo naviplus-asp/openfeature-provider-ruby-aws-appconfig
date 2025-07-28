@@ -37,7 +37,7 @@ module Openfeature
                 credentials: config[:credentials]
               }
 
-              # Add endpoint URL for LocalStack testing
+              # Add endpoint URL for testing
               client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
 
               @client = config[:client] || ::Aws::AppConfig::Client.new(client_config)
@@ -48,7 +48,7 @@ module Openfeature
             # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
             # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the boolean value
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def resolve_boolean_value(flag_key, context = nil)
+            def resolve_boolean_value(flag_key:, context: nil)
               value = get_configuration_value(flag_key, context)
               resolution_details = OpenFeature::SDK::Provider::ResolutionDetails.new(
                 value: convert_to_boolean(value),
@@ -78,7 +78,7 @@ module Openfeature
             # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
             # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the string value
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def resolve_string_value(flag_key, context = nil)
+            def resolve_string_value(flag_key:, context: nil)
               value = get_configuration_value(flag_key, context)
               resolution_details = OpenFeature::SDK::Provider::ResolutionDetails.new(
                 value: convert_to_string(value),
@@ -108,7 +108,7 @@ module Openfeature
             # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
             # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the numeric value
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def resolve_number_value(flag_key, context = nil)
+            def resolve_number_value(flag_key:, context: nil)
               value = get_configuration_value(flag_key, context)
               resolution_details = OpenFeature::SDK::Provider::ResolutionDetails.new(
                 value: convert_to_number(value),
@@ -138,7 +138,7 @@ module Openfeature
             # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
             # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the object value
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def resolve_object_value(flag_key, context = nil)
+            def resolve_object_value(flag_key:, context: nil)
               value = get_configuration_value(flag_key, context)
               resolution_details = OpenFeature::SDK::Provider::ResolutionDetails.new(
                 value: convert_to_object(value),
@@ -161,6 +161,35 @@ module Openfeature
                 flag_key: flag_key,
                 resolution_details: resolution_details
               )
+            end
+
+            # Required methods for OpenFeature SDK 0.4.0 compatibility
+            def fetch_boolean_value(flag_key:, default_value:, evaluation_context: nil)
+              result = resolve_boolean_value(flag_key: flag_key, context: evaluation_context)
+              result.value
+            rescue StandardError
+              default_value
+            end
+
+            def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
+              result = resolve_string_value(flag_key: flag_key, context: evaluation_context)
+              result.value
+            rescue StandardError
+              default_value
+            end
+
+            def fetch_number_value(flag_key:, default_value:, evaluation_context: nil)
+              result = resolve_number_value(flag_key: flag_key, context: evaluation_context)
+              result.value
+            rescue StandardError
+              default_value
+            end
+
+            def fetch_object_value(flag_key:, default_value:, evaluation_context: nil)
+              result = resolve_object_value(flag_key: flag_key, context: evaluation_context)
+              result.value
+            rescue StandardError
+              default_value
             end
 
             private

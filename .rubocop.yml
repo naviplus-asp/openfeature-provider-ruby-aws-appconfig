@@ -26,18 +26,12 @@ Metrics/ClassLength:
   Exclude:
     - "test/**/*"
     - "lib/openfeature/provider/ruby/aws/appconfig/provider.rb"
-    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
 
 # Test methods can be longer than regular methods
 Metrics/MethodLength:
   Exclude:
     - "test/**/*"
     - "lib/openfeature/provider/ruby/aws/appconfig/provider.rb"
-    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
-
-Metrics/AbcSize:
-  Exclude:
-    - "lib/openfeature/provider/ruby/aws/appconfig/localstack_helper.rb"
 
 Minitest/MultipleAssertions:
   Exclude:

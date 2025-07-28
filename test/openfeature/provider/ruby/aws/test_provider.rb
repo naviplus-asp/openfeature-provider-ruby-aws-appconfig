@@ -29,7 +29,7 @@ module Openfeature
               client.instance_variable_set(:@config_data, {})
 
               # get_configurationメソッドを定義
-              def client.get_configuration(*)
+              def client.get_configuration(**_kwargs)
                 # モックレスポンスを作成
                 response = Object.new
                 content = Object.new

@@ -35,3 +35,8 @@ Metrics/MethodLength:
 Minitest/MultipleAssertions:
   Exclude:
     - "test/**/*"
+
+# Disable trivial accessors for test files due to mock object limitations
+Style/TrivialAccessors:
+  Exclude:
+    - "test/**/*"

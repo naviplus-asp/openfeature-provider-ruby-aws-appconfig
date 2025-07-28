@@ -6,17 +6,17 @@ Gem::Specification.new do |spec|
   spec.name = "openfeature-provider-ruby-aws-appconfig"
   spec.version = Openfeature::Provider::Ruby::Aws::Appconfig::VERSION
   spec.authors = ["Takahashi Masaki"]
-  spec.email = ["masaki.takahashi@naviplus.co.jp"]
+  spec.email = ["masaki-takahashi@dgbt.jp"]
 
   spec.summary = "OpenFeature provider for AWS AppConfig integration"
   spec.description = "A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature flag management"
-  spec.homepage = "https://github.com/naviplus/openfeature-provider-ruby-aws-appconfig"
+  spec.homepage = "https://github.com/naviplus-asp/openfeature-provider-ruby-aws-appconfig"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/naviplus/openfeature-provider-ruby-aws-appconfig"
-  spec.metadata["changelog_uri"] = "https://github.com/naviplus/openfeature-provider-ruby-aws-appconfig/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = "https://github.com/naviplus-asp/openfeature-provider-ruby-aws-appconfig"
+  spec.metadata["changelog_uri"] = "https://github.com/naviplus-asp/openfeature-provider-ruby-aws-appconfig/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Specify which files should be added to the gem when it is released.

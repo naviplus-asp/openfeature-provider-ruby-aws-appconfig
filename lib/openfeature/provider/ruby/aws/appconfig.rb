@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "appconfig/provider"
-require_relative "appconfig/localstack_helper"
 require_relative "appconfig/version"
 
 module Openfeature

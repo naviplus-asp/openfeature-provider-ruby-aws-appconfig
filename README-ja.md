@@ -9,7 +9,6 @@ AWS AppConfigと統合してフィーチャーフラグ管理を行うOpenFeatur
 - ✅ 全データ型のサポート（boolean、string、number、object）
 - ✅ 包括的なエラーハンドリング
 - ✅ 型変換とバリデーション
-- ✅ LocalStackを使用した統合テスト
 - ✅ モックを使用したユニットテスト
 
 ## インストール
@@ -100,15 +99,14 @@ puts "理由: #{result.reason}"
 
 - `region`: AWSリージョン（デフォルト: "us-east-1"）
 - `credentials`: AWS認証情報（デフォルト: AWS SDKのデフォルト認証チェーンを使用）
-- `endpoint_url`: カスタムエンドポイントURL（LocalStackテストに便利）
+- `endpoint_url`: カスタムエンドポイントURL（カスタムエンドポイントでのテストに便利）
 
 ## 開発
 
 ### 前提条件
 
 - Ruby 3.1以上
-- DockerとDocker Compose（統合テスト用）
-- AWS CLI（オプション、LocalStackテスト用）
+- AWS CLI（オプション、AWS AppConfigテスト用）
 
 ### セットアップ
 
@@ -123,38 +121,18 @@ cd openfeature-provider-ruby-aws-appconfig
 bundle install
 ```
 
-3. 統合テスト用にLocalStackをセットアップ：
-```bash
-./scripts/setup_localstack.sh
-```
+
 
 ### テストの実行
 
 #### ユニットテスト（モック使用）
 ```bash
-bundle exec rake test:unit
-```
-
-#### 統合テスト（LocalStack使用）
-```bash
-bundle exec rake test:integration
+bundle exec rake test_unit
 ```
 
 #### 全テスト
 ```bash
 bundle exec rake test
-```
-
-#### Dockerベースのテスト
-```bash
-# LocalStackとDockerで全テストを実行
-docker-compose up test-runner
-
-# LocalStackのみ実行
-docker-compose up localstack
-
-# 全サービスを停止
-docker-compose down
 ```
 
 ### テスト構造
@@ -163,11 +141,6 @@ docker-compose down
   - AWS SDK呼び出しにモックを使用
   - 高速実行
   - 外部依存関係なし
-
-- **統合テスト**: `test/integration/`に配置
-  - 実際のAWS AppConfigシミュレーションにLocalStackを使用
-  - 実際のAWS API相互作用をテスト
-  - より包括的だが低速
 
 ## AWS AppConfig設定
 
@@ -230,15 +203,11 @@ openfeature-provider-ruby-aws-appconfig/
 ├── lib/
 │   └── openfeature/provider/ruby/aws/appconfig/
 │       ├── provider.rb              # メインプロバイダークラス
-│       ├── localstack_helper.rb     # LocalStack統合ヘルパー
 │       └── version.rb               # バージョン情報
 ├── test/
-│   ├── integration/                 # 統合テスト
 │   └── openfeature/provider/ruby/aws/  # ユニットテスト
 ├── examples/                        # 使用例
-├── scripts/                         # セットアップスクリプト
-├── docker-compose.yml              # Docker Compose設定
-└── Dockerfile.test                 # テスト用Dockerfile
+└── sig/                            # RBS型定義
 ```
 
 ## トラブルシューティング
@@ -249,9 +218,9 @@ openfeature-provider-ruby-aws-appconfig/
    - AWS認証情報が正しく設定されているか確認
    - IAMロールとポリシーを確認
 
-2. **LocalStack接続エラー**
-   - LocalStackが正常に起動しているか確認
-   - ポート4566が利用可能か確認
+2. **AWS AppConfig接続エラー**
+   - AWS認証情報が正しく設定されているか確認
+   - AppConfigリソースが存在するか確認
 
 3. **テスト失敗**
    - 依存関係が正しくインストールされているか確認

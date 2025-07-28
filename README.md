@@ -9,7 +9,6 @@ A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature f
 - ✅ Support for all data types (boolean, string, number, object)
 - ✅ Comprehensive error handling
 - ✅ Type conversion and validation
-- ✅ Integration tests with LocalStack
 - ✅ Unit tests with mocking
 
 ## Installation
@@ -100,15 +99,14 @@ puts "Reason: #{result.reason}"
 
 - `region`: AWS region (default: "us-east-1")
 - `credentials`: AWS credentials (default: uses AWS SDK default credential chain)
-- `endpoint_url`: Custom endpoint URL (useful for LocalStack testing)
+- `endpoint_url`: Custom endpoint URL (useful for testing with custom endpoints)
 
 ## Development
 
 ### Prerequisites
 
 - Ruby 3.1 or higher
-- Docker and Docker Compose (for integration tests)
-- AWS CLI (optional, for LocalStack testing)
+- AWS CLI (optional, for AWS AppConfig testing)
 
 ### Setup
 
@@ -123,10 +121,7 @@ cd openfeature-provider-ruby-aws-appconfig
 bundle install
 ```
 
-3. Setup LocalStack for integration tests:
-```bash
-./scripts/setup_localstack.sh
-```
+
 
 ### Running Tests
 
@@ -135,26 +130,9 @@ bundle install
 bundle exec rake test:unit
 ```
 
-#### Integration Tests (with LocalStack)
-```bash
-bundle exec rake test:integration
-```
-
 #### All Tests
 ```bash
 bundle exec rake test
-```
-
-#### Docker-based Testing
-```bash
-# Run all tests in Docker with LocalStack
-docker-compose up test-runner
-
-# Run only LocalStack
-docker-compose up localstack
-
-# Stop all services
-docker-compose down
 ```
 
 ### Test Structure
@@ -163,11 +141,6 @@ docker-compose down
   - Use mocking for AWS SDK calls
   - Fast execution
   - No external dependencies
-
-- **Integration Tests**: Located in `test/integration/`
-  - Use LocalStack for real AWS AppConfig simulation
-  - Test actual AWS API interactions
-  - More comprehensive but slower
 
 ## AWS AppConfig Configuration
 

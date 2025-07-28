@@ -29,7 +29,7 @@ module Openfeature
               client.instance_variable_set(:@config_data, {})
 
               # get_configurationメソッドを定義
-              def client.get_configuration(application:, environment:, configuration_profile:)
+              def client.get_configuration(*)
                 # モックレスポンスを作成
                 response = Object.new
                 content = Object.new
@@ -40,9 +40,7 @@ module Openfeature
                 end
 
                 # response.contentメソッドを定義
-                def response.content
-                  @content
-                end
+                attr_reader :content
 
                 response.instance_variable_set(:@content, content)
                 content.instance_variable_set(:@config_data, @config_data)
@@ -50,16 +48,14 @@ module Openfeature
               end
 
               # 設定データを設定するメソッド
-              def client.set_config_data(data)
-                @config_data = data
-              end
+              attr_writer :config_data
 
               client
             end
 
             def mock_configuration_response(content)
               config_data = JSON.parse(content)
-              @mock_client.set_config_data(config_data)
+              @mock_client.config_data = config_data
             end
 
             def test_resolve_boolean_value_success

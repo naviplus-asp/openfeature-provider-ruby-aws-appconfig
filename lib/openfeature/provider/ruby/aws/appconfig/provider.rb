@@ -3,6 +3,8 @@
 require "open_feature/sdk"
 require "aws-sdk-appconfigdata"
 require "json"
+require_relative "client"
+require_relative "agent_client"
 
 module Openfeature
   module Provider
@@ -40,13 +42,12 @@ module Openfeature
             # @option config [Aws::Credentials] :credentials AWS credentials
             # @option config [String] :endpoint_url Custom endpoint URL for testing
             # @option config [Aws::AppConfigData::Client] :client Custom AWS AppConfigData client
-            # @option config [Integer] :session_timeout Session timeout in seconds (default: 3600)
-            # @option config [Integer] :session_buffer Buffer time before session expiry in seconds (default: 300)
+            # @option config [Symbol] :mode Operation mode (:direct_sdk or :agent, default: :direct_sdk)
+            # @option config [String] :agent_endpoint AppConfig Agent endpoint (default: "http://localhost:2772")
             # @raise [ArgumentError] When required parameters are missing
             def initialize(config = {})
               validate_required_config(config)
-              setup_client(config)
-              @session_token = nil
+              setup_mode(config)
             end
 
             def validate_required_config(config)
@@ -56,20 +57,32 @@ module Openfeature
                                                                                "configuration_profile is required")
             end
 
-            def setup_client(config)
-              client_config = build_client_config(config)
-              @client = config[:client] || ::Aws::AppConfigData::Client.new(client_config)
-            end
-
-            def build_client_config(config)
-              client_config = {
-                region: config[:region] || "us-east-1",
-                credentials: config[:credentials]
-              }
-
-              # Add endpoint URL for testing
-              client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
-              client_config
+            def setup_mode(config)
+              @mode = config[:mode] || :direct_sdk
+              case @mode
+              when :direct_sdk
+                @client = Client.new(
+                  application: @application,
+                  environment: @environment,
+                  configuration_profile: @configuration_profile,
+                  options: {
+                    region: config[:region] || "us-east-1",
+                    credentials: config[:credentials],
+                    client: config[:client],
+                    endpoint_url: config[:endpoint_url]
+                  }
+                )
+              when :agent
+                @client = AgentClient.new(
+                  application: @application,
+                  environment: @environment,
+                  configuration_profile: @configuration_profile,
+                  agent_endpoint: config[:agent_endpoint] || "http://localhost:2772",
+                  agent_http_client: config[:agent_http_client]
+                )
+              else
+                raise ArgumentError, "Invalid mode: #{@mode}. Supported modes: :direct_sdk, :agent"
+              end
             end
 
             # Resolves a boolean feature flag value from AWS AppConfig
@@ -88,91 +101,6 @@ module Openfeature
             # @raise [StandardError] When configuration cannot be retrieved or parsed
             def resolve_string_value(flag_key:, context: nil)
               resolve_value(flag_key: flag_key, context: context, converter: :convert_to_string, default_value: "")
-            end
-
-            # Common method to resolve feature flag values
-            # @param flag_key [String] The feature flag key to resolve
-            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
-            # @param converter [Symbol] The conversion method to use
-            # @param default_value [Object] The default value for errors
-            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the value
-            # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def resolve_value(flag_key:, converter:, default_value:, context: nil)
-              flag_data = get_configuration_value(flag_key, context)
-              resolution_details = create_resolution_details(flag_data, context, converter, default_value)
-
-              OpenFeature::SDK::EvaluationDetails.new(
-                flag_key: flag_key,
-                resolution_details: resolution_details
-              )
-            rescue StandardError => e
-              resolution_details = create_error_resolution_details(default_value, e.message)
-              OpenFeature::SDK::EvaluationDetails.new(
-                flag_key: flag_key,
-                resolution_details: resolution_details
-              )
-            end
-
-            # Creates resolution details for a feature flag
-            # @param flag_data [Object] The flag data from AWS AppConfig
-            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
-            # @param converter [Symbol] The conversion method to use
-            # @param default_value [Object] The default value for errors
-            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
-            def create_resolution_details(flag_data, context, converter, default_value)
-              if multi_variant_flag?(flag_data)
-                create_multi_variant_resolution_details(flag_data, context, converter, default_value)
-              else
-                create_simple_resolution_details(flag_data, converter)
-              end
-            end
-
-            # Creates resolution details for multi-variant flags
-            # @param flag_data [Hash] The multi-variant flag data
-            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
-            # @param converter [Symbol] The conversion method to use
-            # @param default_value [Object] The default value for errors
-            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
-            def create_multi_variant_resolution_details(flag_data, context, converter, default_value)
-              variant = select_variant(flag_data, context)
-              if variant
-                value = send(converter, variant["value"])
-                reason = determine_resolution_reason(flag_data, context, variant)
-                OpenFeature::SDK::Provider::ResolutionDetails.new(
-                  value: value,
-                  variant: variant["name"] || "selected",
-                  reason: reason
-                )
-              else
-                create_error_resolution_details(default_value, "No matching variant found")
-              end
-            end
-
-            # Creates resolution details for simple flags
-            # @param flag_data [Object] The flag data
-            # @param converter [Symbol] The conversion method to use
-            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
-            def create_simple_resolution_details(flag_data, converter)
-              value = send(converter, flag_data)
-              OpenFeature::SDK::Provider::ResolutionDetails.new(
-                value: value,
-                variant: "default",
-                reason: "DEFAULT"
-              )
-            end
-
-            # Creates error resolution details
-            # @param default_value [Object] The default value
-            # @param error_message [String] The error message
-            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Error resolution details
-            def create_error_resolution_details(default_value, error_message)
-              OpenFeature::SDK::Provider::ResolutionDetails.new(
-                value: default_value,
-                variant: "error",
-                reason: "ERROR",
-                error_code: "GENERAL",
-                error_message: error_message
-              )
             end
 
             # Resolves a numeric feature flag value from AWS AppConfig
@@ -224,103 +152,99 @@ module Openfeature
 
             private
 
-            # Retrieves configuration value from AWS AppConfig using the new AppConfigData API
+            # Common method to resolve feature flag values
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the value
+            # @raise [StandardError] When configuration cannot be retrieved or parsed
+            def resolve_value(flag_key:, converter:, default_value:, context: nil)
+              flag_data = get_configuration_value(flag_key, context)
+              resolution_details = create_resolution_details(flag_data, context, converter, default_value)
+
+              OpenFeature::SDK::EvaluationDetails.new(
+                flag_key: flag_key,
+                resolution_details: resolution_details
+              )
+            rescue StandardError => e
+              resolution_details = create_error_resolution_details(default_value, e.message)
+              OpenFeature::SDK::EvaluationDetails.new(
+                flag_key: flag_key,
+                resolution_details: resolution_details
+              )
+            end
+
+            # Retrieves configuration value from AWS AppConfig
             # @param flag_key [String] The feature flag key to retrieve
             # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Object, nil] The configuration value or nil if not found
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def get_configuration_value(flag_key, context)
-              ensure_valid_session
-              response = fetch_configuration_response
-              parse_configuration_response(response, flag_key)
-            rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
-              raise StandardError, "Configuration not found: #{e.message}"
-            rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
-              raise StandardError, "Request throttled: #{e.message}"
-            rescue ::Aws::AppConfigData::Errors::InvalidParameterException => e
-              handle_invalid_parameter_exception(e, flag_key, context)
-            rescue JSON::ParserError => e
-              raise StandardError, "Failed to parse configuration: #{e.message}"
+            def get_configuration_value(flag_key, _context)
+              @client.get_configuration(flag_key)
             end
 
-            # Fetches configuration response from AWS AppConfigData
-            # @return [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
-            # @raise [StandardError] When configuration cannot be retrieved
-            def fetch_configuration_response
-              @client.get_latest_configuration(
-                configuration_token: @session_token
-              )
-            end
-
-            # Parses configuration response and extracts flag value
-            # @param response [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
-            # @param flag_key [String] The feature flag key to retrieve
-            # @return [Object, nil] The configuration value or nil if not found
-            # @raise [JSON::ParserError] When configuration cannot be parsed
-            def parse_configuration_response(response, flag_key)
-              config_data = JSON.parse(response.configuration.read)
-              config_data[flag_key]
-            end
-
-            # Handles InvalidParameterException with session refresh logic
-            # @param exception [Aws::AppConfigData::Errors::InvalidParameterException] The exception to handle
-            # @param flag_key [String] The feature flag key to retrieve
+            # Creates resolution details for a feature flag
+            # @param flag_data [Object] The flag data from AWS AppConfig
             # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
-            # @raise [StandardError] When the exception is not session-related
-            def handle_invalid_parameter_exception(exception, flag_key, context)
-              # Log the exception details for debugging
-              puts "InvalidParameterException encountered: #{exception.message}"
-
-              # Check if the error is due to session expiration
-              unless session_expired_error?(exception.message)
-                raise StandardError, "Invalid parameter error: #{exception.message}"
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_resolution_details(flag_data, context, converter, default_value)
+              # In agent mode, targeting is handled server-side, so we treat all flags as simple
+              if @mode == :agent || !multi_variant_flag?(flag_data)
+                create_simple_resolution_details(flag_data, converter)
+              else
+                create_multi_variant_resolution_details(flag_data, context, converter, default_value)
               end
-
-              # Session might be expired, try to refresh and retry
-              refresh_session
-              # Retry the original operation by calling the parent method again
-              get_configuration_value(flag_key, context)
             end
 
-            # Checks if the error message indicates session expiration
-            # @param message [String] The error message to check
-            # @return [Boolean] True if the error indicates session expiration
-            def session_expired_error?(message)
-              message.include?("expired") || message.include?("session")
+            # Creates resolution details for multi-variant flags
+            # @param flag_data [Hash] The multi-variant flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_multi_variant_resolution_details(flag_data, context, converter, default_value)
+              variant = select_variant(flag_data, context)
+              if variant
+                value = send(converter, variant["value"])
+                reason = determine_resolution_reason(flag_data, context, variant)
+                OpenFeature::SDK::Provider::ResolutionDetails.new(
+                  value: value,
+                  variant: variant["name"] || "selected",
+                  reason: reason
+                )
+              else
+                create_error_resolution_details(default_value, "No matching variant found")
+              end
             end
 
-            # Ensures we have a valid session token
-            # @raise [StandardError] When session cannot be created
-            def ensure_valid_session
-              create_session if @session_token.nil?
-            end
-
-            # Checks if the current session is still valid
-            # @return [Boolean] True if session is valid
-            def session_valid?
-              !@session_token.nil?
-            end
-
-            # Creates a new configuration session
-            # @raise [StandardError] When session cannot be created
-            def create_session
-              response = @client.start_configuration_session(
-                application_identifier: @application,
-                environment_identifier: @environment,
-                configuration_profile_identifier: @configuration_profile
+            # Creates resolution details for simple flags
+            # @param flag_data [Object] The flag data
+            # @param converter [Symbol] The conversion method to use
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_simple_resolution_details(flag_data, converter)
+              value = send(converter, flag_data)
+              OpenFeature::SDK::Provider::ResolutionDetails.new(
+                value: value,
+                variant: "default",
+                reason: "DEFAULT"
               )
-              @session_token = response.initial_configuration_token
-            rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
-              raise StandardError, "Configuration session not found: #{e.message}"
-            rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
-              raise StandardError, "Session creation throttled: #{e.message}"
             end
 
-            # Refreshes the configuration session
-            # @raise [StandardError] When session cannot be refreshed
-            def refresh_session
-              @session_token = nil
-              create_session
+            # Creates error resolution details
+            # @param default_value [Object] The default value
+            # @param error_message [String] The error message
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Error resolution details
+            def create_error_resolution_details(default_value, error_message)
+              OpenFeature::SDK::Provider::ResolutionDetails.new(
+                value: default_value,
+                variant: "error",
+                reason: "ERROR",
+                error_code: "GENERAL",
+                error_message: error_message
+              )
             end
 
             # Checks if the flag data represents a multi-variant flag
@@ -374,39 +298,38 @@ module Openfeature
               end
             end
 
-            # Evaluates targeting rules to select a variant
+            # Evaluates targeting rules to find matching variant
             # @param flag_data [Hash] The multi-variant flag data
-            # @param context [OpenFeature::EvaluationContext] Evaluation context
-            # @return [Hash, nil] The selected variant or nil if no match
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Hash, nil] The matching variant or nil
             def evaluate_targeting_rules(flag_data, context)
               targeting_rules = flag_data["targetingRules"] || []
+              get_context_attributes(context)
 
               targeting_rules.each do |rule|
                 next unless rule_matches?(rule, context)
 
                 variant_name = rule["variant"]
-                variant = find_variant_by_name(flag_data["variants"], variant_name)
-                return variant if variant
+                return find_variant_by_name(flag_data["variants"], variant_name) if variant_name
               end
 
               nil
             end
 
-            # Checks if a targeting rule matches the evaluation context
-            # @param rule [Hash] The targeting rule to evaluate
-            # @param context [OpenFeature::EvaluationContext] Evaluation context
+            # Checks if a targeting rule matches the context
+            # @param rule [Hash] The targeting rule to check
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Boolean] True if the rule matches
             def rule_matches?(rule, context)
               conditions = rule["conditions"] || []
+              return true if conditions.empty?
 
-              conditions.all? do |condition|
-                condition_matches?(condition, context)
-              end
+              conditions.all? { |condition| condition_matches?(condition, context) }
             end
 
-            # Checks if a condition matches the evaluation context
-            # @param condition [Hash] The condition to evaluate
-            # @param context [OpenFeature::EvaluationContext] Evaluation context
+            # Checks if a condition matches the context
+            # @param condition [Hash] The condition to check
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Boolean] True if the condition matches
             def condition_matches?(condition, context)
               attribute_key = condition["attribute"]
@@ -414,17 +337,19 @@ module Openfeature
               value = condition["value"]
 
               context_attributes = get_context_attributes(context)
-              context_value = context_attributes[attribute_key] if context_attributes
+              return false unless context_attributes
+
+              context_value = context_attributes[attribute_key]
               return false if context_value.nil?
 
               evaluate_operator?(operator, context_value, value)
             end
 
-            # Evaluates a single operator condition
+            # Evaluates an operator between context value and condition value
             # @param operator [String] The operator to evaluate
-            # @param context_value [Object] The context value
-            # @param value [Object] The condition value
-            # @return [Boolean] True if the condition matches
+            # @param context_value [Object] The value from context
+            # @param value [Object] The value from condition
+            # @return [Boolean] True if the operator evaluates to true
             def evaluate_operator?(operator, context_value, value)
               operator_method = OPERATOR_METHODS[operator]
               return false unless operator_method
@@ -432,7 +357,7 @@ module Openfeature
               send(operator_method, context_value, value)
             end
 
-            # Operator implementations
+            # Operator methods for targeting rule evaluation
             def equals_operator?(context_value, value)
               context_value == value
             end
@@ -460,37 +385,29 @@ module Openfeature
             def greater_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
-              Float(context_value) > Float(value)
-            rescue ArgumentError, TypeError
-              false
+              context_value.to_f > value.to_f
             end
 
             def greater_than_or_equal_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
-              Float(context_value) >= Float(value)
-            rescue ArgumentError, TypeError
-              false
+              context_value.to_f >= value.to_f
             end
 
             def less_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
-              Float(context_value) < Float(value)
-            rescue ArgumentError, TypeError
-              false
+              context_value.to_f < value.to_f
             end
 
             def less_than_or_equal_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
-              Float(context_value) <= Float(value)
-            rescue ArgumentError, TypeError
-              false
+              context_value.to_f <= value.to_f
             end
 
-            # Validates if a value can be converted to a float
-            # @param value [Object] The value to validate
+            # Checks if a value can be converted to a float
+            # @param value [Object] The value to check
             # @return [Boolean] True if the value can be converted to float
             def valid_float?(value)
               Float(value)
@@ -500,22 +417,20 @@ module Openfeature
             end
 
             # Finds a variant by name
-            # @param variants [Array] Array of variants
-            # @param variant_name [String] Name of the variant to find
-            # @return [Hash, nil] The variant or nil if not found
+            # @param variants [Array] Array of variant hashes
+            # @param variant_name [String] The name of the variant to find
+            # @return [Hash, nil] The variant hash or nil if not found
             def find_variant_by_name(variants, variant_name)
               variants.find { |v| v["name"] == variant_name }
             end
 
-            # Converts a value to boolean type
-            # @param value [Object] The value to convert
-            # @return [Boolean] The converted boolean value
+            # Conversion methods for different data types
             def convert_to_boolean(value)
               case value
               when true, false
                 value
               when String
-                value.downcase == "true"
+                value.downcase == "true" || value == "1"
               when Numeric
                 value != 0
               else
@@ -523,22 +438,20 @@ module Openfeature
               end
             end
 
-            # Converts a value to string type
-            # @param value [Object] The value to convert
-            # @return [String] The converted string value
             def convert_to_string(value)
               value.to_s
             end
 
-            # Converts a value to numeric type
-            # @param value [Object] The value to convert
-            # @return [Numeric] The converted numeric value (Float for string inputs)
             def convert_to_number(value)
               case value
               when Numeric
                 value
               when String
-                Float(value)
+                if value.include?(".")
+                  value.to_f
+                else
+                  value.to_i
+                end
               else
                 0
               end
@@ -546,53 +459,49 @@ module Openfeature
               0
             end
 
-            # Converts a value to object type (Hash)
-            # @param value [Object] The value to convert
-            # @return [Hash] The converted hash value
             def convert_to_object(value)
               case value
               when Hash
                 value
               when String
-                JSON.parse(value)
+                begin
+                  JSON.parse(value)
+                rescue JSON::ParserError
+                  {}
+                end
               else
                 {}
               end
-            rescue JSON::ParserError
-              {}
             end
 
-            # Determines the resolution reason for a multi-variant flag
-            # @param flag_data [Hash] The multi-variant flag data
+            # Determines the resolution reason for a selected variant
+            # @param flag_data [Hash] The flag data
             # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @param selected_variant [Hash] The selected variant
             # @return [String] The resolution reason
             def determine_resolution_reason(flag_data, context, selected_variant)
               default_variant_name = flag_data["defaultVariant"]
 
-              # If the selected variant is the default variant, it's DEFAULT
-              return "DEFAULT" if selected_variant["name"] == default_variant_name
-
-              # If no context or no targeting rules, it's DEFAULT
-              context_attributes = get_context_attributes(context)
-              return "DEFAULT" if context.nil? || context_attributes.nil? || context_attributes.empty?
-
-              # Check if any targeting rule matches
-              return "TARGETING_MATCH" if targeting_rule_matches?(flag_data, context, selected_variant)
-
-              # If no targeting rule matches, it's DEFAULT
-              "DEFAULT"
+              if selected_variant["name"] == default_variant_name
+                "DEFAULT"
+              elsif targeting_rule_matches?(flag_data, context, selected_variant)
+                "TARGETING_MATCH"
+              else
+                "SPLIT"
+              end
             end
 
-            # Checks if any targeting rule matches the selected variant
-            # @param flag_data [Hash] The multi-variant flag data
-            # @param context [OpenFeature::EvaluationContext] Evaluation context
+            # Checks if a targeting rule matches for the selected variant
+            # @param flag_data [Hash] The flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @param selected_variant [Hash] The selected variant
             # @return [Boolean] True if a targeting rule matches
             def targeting_rule_matches?(flag_data, context, selected_variant)
               targeting_rules = flag_data["targetingRules"] || []
+              return false if targeting_rules.empty?
+
               targeting_rules.any? do |rule|
-                rule_matches?(rule, context) && rule["variant"] == selected_variant["name"]
+                rule["variant"] == selected_variant["name"] && rule_matches?(rule, context)
               end
             end
           end

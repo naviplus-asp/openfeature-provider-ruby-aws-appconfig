@@ -29,19 +29,52 @@ And then execute:
 bundle install
 ```
 
-## AWS AppConfig API
+## Operation Modes
 
-This provider uses the latest AWS AppConfigData API instead of the deprecated `getConfiguration` API. The new API provides:
+This provider supports two operation modes for AWS AppConfig integration:
+
+### Direct SDK Mode (Default)
+Uses the latest AWS AppConfigData API directly. This mode provides:
 
 - **Free API calls**: No charges for configuration retrieval
 - **Session management**: Efficient configuration retrieval with session tokens
 - **Better performance**: Optimized for frequent configuration access
 - **Future-proof**: Uses the recommended AWS API
+- **Client-side targeting**: Custom targeting logic evaluation
 
 The provider automatically handles:
 - Session creation and management
 - Token refresh when sessions expire
 - Error handling and retry logic
+
+### Agent Mode
+Uses AWS AppConfig Agent for configuration retrieval. This mode provides:
+
+- **Server-side targeting**: More secure targeting rule evaluation
+- **Local endpoint**: Efficient local HTTP API access
+- **Simplified authentication**: Agent handles AWS credentials
+- **Network efficiency**: Reduced AWS API calls
+
+### Mode Selection
+
+```ruby
+# Direct SDK mode (default)
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  mode: :direct_sdk  # or omit for default
+)
+
+# Agent mode
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  mode: :agent,
+  agent_endpoint: "http://localhost:2772"  # default endpoint
+)
+```
 
 ## Usage
 

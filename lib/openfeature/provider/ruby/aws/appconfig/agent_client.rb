@@ -21,19 +21,10 @@ module Openfeature
 
             def get_configuration(flag_key)
               uri = build_agent_uri
-              http = @agent_http_client.new(uri.host, uri.port)
-              http.use_ssl = uri.scheme == "https"
-
-              request = Net::HTTP::Get.new(uri)
-              request["Content-Type"] = "application/json"
-
-              response = http.request(request)
-              unless response.is_a?(Net::HTTPSuccess)
-                raise Net::HTTPError.new("HTTP #{response.code}: #{response.body}", response)
-              end
-
-              config_data = JSON.parse(response.body)
-              config_data[flag_key]
+              http = create_http_client(uri)
+              request = create_request(uri)
+              response = send_request(http, request)
+              parse_response(response, flag_key)
             rescue Net::HTTPError => e
               raise StandardError, "Agent HTTP error: #{e.message}"
             rescue JSON::ParserError => e
@@ -42,8 +33,37 @@ module Openfeature
 
             private
 
+            def create_http_client(uri)
+              http = @agent_http_client.new(uri.host, uri.port)
+              http.use_ssl = uri.scheme == "https"
+              http
+            end
+
+            def create_request(uri)
+              request = Net::HTTP::Get.new(uri)
+              request["Content-Type"] = "application/json"
+              request
+            end
+
+            def send_request(http, request)
+              response = http.request(request)
+              unless response.is_a?(Net::HTTPSuccess)
+                raise Net::HTTPError.new("HTTP #{response.code}: #{response.body}", response)
+              end
+
+              response
+            end
+
+            def parse_response(response, flag_key)
+              config_data = JSON.parse(response.body)
+              config_data[flag_key]
+            end
+
+            # Builds the URI for AppConfig Agent API
+            # @return [URI] The agent API URI
             def build_agent_uri
-              path = "/applications/#{@application}/environments/#{@environment}/configurations/#{@configuration_profile}"
+              path = "/applications/#{@application}/environments/#{@environment}/" \
+                     "configurations/#{@configuration_profile}"
               URI.parse("#{@agent_endpoint}#{path}")
             end
           end

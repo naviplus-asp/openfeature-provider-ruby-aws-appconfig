@@ -65,10 +65,12 @@ module Openfeature
                   application: @application,
                   environment: @environment,
                   configuration_profile: @configuration_profile,
-                  region: config[:region] || "us-east-1",
-                  credentials: config[:credentials],
-                  client: config[:client],
-                  endpoint_url: config[:endpoint_url]
+                  options: {
+                    region: config[:region] || "us-east-1",
+                    credentials: config[:credentials],
+                    client: config[:client],
+                    endpoint_url: config[:endpoint_url]
+                  }
                 )
               when :agent
                 @client = AgentClient.new(

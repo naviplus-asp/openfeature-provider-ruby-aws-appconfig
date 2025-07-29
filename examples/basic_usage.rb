@@ -109,7 +109,7 @@ def mock_client.get_configuration(*)
     JSON.generate(@config_data)
   end
 
-  # response.contentメソッドを定義
+  # Define the response.content method
   response.define_singleton_method(:content) { @content }
 
   response.instance_variable_set(:@content, content)

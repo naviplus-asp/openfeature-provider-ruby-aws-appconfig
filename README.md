@@ -5,11 +5,12 @@ A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature f
 ## Features
 
 - ✅ Full OpenFeature specification compliance
-- ✅ AWS AppConfig integration
+- ✅ AWS AppConfig integration using the latest AppConfigData API
 - ✅ Support for all data types (boolean, string, number, object)
 - ✅ **Multi-variant feature flags with targeting rules**
 - ✅ **Advanced targeting operators (equals, contains, starts_with, etc.)**
 - ✅ **Complex targeting conditions with multiple attributes**
+- ✅ **Session management for efficient configuration retrieval**
 - ✅ Comprehensive error handling
 - ✅ Type conversion and validation
 - ✅ Unit tests with mocking
@@ -27,6 +28,20 @@ And then execute:
 ```bash
 bundle install
 ```
+
+## AWS AppConfig API
+
+This provider uses the latest AWS AppConfigData API instead of the deprecated `getConfiguration` API. The new API provides:
+
+- **Free API calls**: No charges for configuration retrieval
+- **Session management**: Efficient configuration retrieval with session tokens
+- **Better performance**: Optimized for frequent configuration access
+- **Future-proof**: Uses the recommended AWS API
+
+The provider automatically handles:
+- Session creation and management
+- Token refresh when sessions expire
+- Error handling and retry logic
 
 ## Usage
 

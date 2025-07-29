@@ -5,7 +5,8 @@ AWS AppConfigと統合してフィーチャーフラグ管理を行うOpenFeatur
 ## 機能
 
 - ✅ OpenFeature仕様の完全準拠
-- ✅ AWS AppConfig統合
+- ✅ AWS AppConfig統合（最新のAppConfigData API使用）
+- ✅ AppConfig Agentと直接SDKの併存サポート
 - ✅ 全データ型のサポート（boolean、string、number、object）
 - ✅ 包括的なエラーハンドリング
 - ✅ 型変換とバリデーション
@@ -25,6 +26,49 @@ gem "openfeature-provider-ruby-aws-appconfig"
 bundle install
 ```
 
+## 動作モード
+
+このプロバイダーは2つの動作モードをサポートしています：
+
+### 直接SDKモード（デフォルト）
+最新のAWS AppConfigData APIを直接使用します。このモードの特徴：
+
+- **無料API呼び出し**: 設定取得に料金がかからない
+- **セッション管理**: 効率的な設定取得とセッショントークン管理
+- **パフォーマンス向上**: 頻繁な設定アクセスに最適化
+- **将来性**: AWS推奨のAPIを使用
+- **クライアントサイドターゲティング**: カスタムターゲティングロジック評価
+
+### Agentモード
+AWS AppConfig Agentを使用して設定を取得します。このモードの特徴：
+
+- **サーバーサイドターゲティング**: より安全なターゲティングルール評価
+- **ローカルエンドポイント**: 効率的なローカルHTTP APIアクセス
+- **認証簡素化**: AgentがAWS認証情報を管理
+- **ネットワーク効率**: AWS API呼び出しの削減
+
+### モード選択
+
+```ruby
+# 直接SDKモード（デフォルト）
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  region: "us-east-1",
+  mode: :direct_sdk  # または省略
+)
+
+# Agentモード
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+  application: "my-application",
+  environment: "production",
+  configuration_profile: "feature-flags",
+  mode: :agent,
+  agent_endpoint: "http://localhost:2772"  # デフォルトエンドポイント
+)
+```
+
 ## 使用方法
 
 ### 基本的な使用方法
@@ -36,12 +80,13 @@ require "openfeature/provider/ruby/aws/appconfig"
 # OpenFeatureクライアントを初期化
 client = OpenFeature::SDK::Client.new
 
-# AWS AppConfigプロバイダーを作成して登録
-provider = Openfeature::Provider::Ruby::Aws::Appconfig.create_provider(
+# AWS AppConfigプロバイダーを作成して登録（直接SDKモード）
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
   application: "my-application",
   environment: "production",
   configuration_profile: "feature-flags",
-  region: "us-east-1"
+  region: "us-east-1",
+  mode: :direct_sdk  # デフォルト
 )
 
 client.set_provider(provider)
@@ -97,9 +142,18 @@ puts "理由: #{result.reason}"
 
 ### オプションパラメータ
 
+#### 共通パラメータ
+- `mode`: 動作モード（`:direct_sdk` または `:agent`、デフォルト: `:direct_sdk`）
+
+#### 直接SDKモード用パラメータ
 - `region`: AWSリージョン（デフォルト: "us-east-1"）
 - `credentials`: AWS認証情報（デフォルト: AWS SDKのデフォルト認証チェーンを使用）
 - `endpoint_url`: カスタムエンドポイントURL（カスタムエンドポイントでのテストに便利）
+- `client`: カスタムAWS AppConfigDataクライアント
+
+#### Agentモード用パラメータ
+- `agent_endpoint`: AppConfig Agentエンドポイント（デフォルト: "http://localhost:2772"）
+- `agent_http_client`: カスタムHTTPクライアント（テスト用）
 
 ## 開発
 
@@ -121,8 +175,6 @@ cd openfeature-provider-ruby-aws-appconfig
 bundle install
 ```
 
-
-
 ### テストの実行
 
 #### ユニットテスト（モック使用）
@@ -141,6 +193,7 @@ bundle exec rake test
   - AWS SDK呼び出しにモックを使用
   - 高速実行
   - 外部依存関係なし
+  - 直接SDKモードとAgentモードの両方をテスト
 
 ## AWS AppConfig設定
 
@@ -166,6 +219,12 @@ bundle exec rake test
 4. JSONを含む設定バージョンを作成
 5. 設定をデプロイ
 
+### AppConfig Agentセットアップ（Agentモード使用時）
+
+1. AppConfig Agentをインストール
+2. Agentを設定して起動
+3. デフォルトエンドポイント（http://localhost:2772）でアクセス可能にする
+
 ## エラーハンドリング
 
 プロバイダーは様々なエラーシナリオを処理します：
@@ -174,6 +233,8 @@ bundle exec rake test
 - **スロットリング**: AWSスロットリング例外を処理
 - **パースエラー**: JSONパースエラーを処理
 - **型変換**: 型の不一致を適切に処理
+- **セッション期限切れ**: 自動セッション更新（直接SDKモード）
+- **HTTPエラー**: AgentモードでのHTTP通信エラー処理
 
 ## 貢献
 
@@ -203,6 +264,8 @@ openfeature-provider-ruby-aws-appconfig/
 ├── lib/
 │   └── openfeature/provider/ruby/aws/appconfig/
 │       ├── provider.rb              # メインプロバイダークラス
+│       ├── client.rb                # AWS SDKクライアント
+│       ├── agent_client.rb          # AppConfig Agentクライアント
 │       └── version.rb               # バージョン情報
 ├── test/
 │   └── openfeature/provider/ruby/aws/  # ユニットテスト
@@ -222,7 +285,12 @@ openfeature-provider-ruby-aws-appconfig/
    - AWS認証情報が正しく設定されているか確認
    - AppConfigリソースが存在するか確認
 
-3. **テスト失敗**
+3. **Agentモードでの接続エラー**
+   - AppConfig Agentが起動しているか確認
+   - エンドポイントURLが正しいか確認
+   - ネットワーク接続を確認
+
+4. **テスト失敗**
    - 依存関係が正しくインストールされているか確認
    - RuboCopオフセンスを修正
 
@@ -236,3 +304,17 @@ OpenFeature::SDK.configure do |config|
   config.logger.level = Logger::DEBUG
 end
 ```
+
+### モード選択のガイドライン
+
+#### 直接SDKモードを選択する場合
+- シンプルなセットアップが必要
+- AWS認証情報が利用可能
+- カスタムターゲティングロジックが必要
+- 外部コンポーネントを追加したくない
+
+#### Agentモードを選択する場合
+- サーバーサイドターゲティングが必要
+- ローカルエンドポイントでのアクセスが必要
+- AWS認証情報の管理を簡素化したい
+- ネットワーク効率を重視する

@@ -104,7 +104,7 @@ def mock_client.get_configuration(*)
   response = Object.new
   content = Object.new
 
-  # content.readメソッドを定義
+  # Define the content.read method
   def content.read
     JSON.generate(@config_data)
   end

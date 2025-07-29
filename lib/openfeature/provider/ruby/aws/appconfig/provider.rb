@@ -368,18 +368,21 @@ module Openfeature
             end
 
             def greater_than_operator?(context_value, value)
+              return false unless valid_float?(context_value) && valid_float?(value)
               Float(context_value) > Float(value)
             rescue ArgumentError, TypeError
               false
             end
 
             def greater_than_or_equal_operator?(context_value, value)
+              return false unless valid_float?(context_value) && valid_float?(value)
               Float(context_value) >= Float(value)
             rescue ArgumentError, TypeError
               false
             end
 
             def less_than_operator?(context_value, value)
+              return false unless valid_float?(context_value) && valid_float?(value)
               Float(context_value) < Float(value)
             rescue ArgumentError, TypeError
               false

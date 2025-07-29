@@ -14,6 +14,5 @@ end
 gem "minitest", "~> 5.16"
 
 # Development dependencies for testing and development
-gem "aws-sdk-appconfig", "~> 1.0"
 gem "aws-sdk-appconfigdata", "~> 1.0"
 gem "openfeature-sdk", "~> 0.1"

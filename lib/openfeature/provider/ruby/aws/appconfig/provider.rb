@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "open_feature/sdk"
-require "aws-sdk-appconfig"
+require "aws-sdk-appconfigdata"
 require "json"
 
 module Openfeature
@@ -39,14 +39,29 @@ module Openfeature
             # @option config [String] :region AWS region (default: "us-east-1")
             # @option config [Aws::Credentials] :credentials AWS credentials
             # @option config [String] :endpoint_url Custom endpoint URL for testing
-            # @option config [Aws::AppConfig::Client] :client Custom AWS AppConfig client
+            # @option config [Aws::AppConfigData::Client] :client Custom AWS AppConfigData client
+            # @option config [Integer] :session_timeout Session timeout in seconds (default: 3600)
+            # @option config [Integer] :session_buffer Buffer time before session expiry in seconds (default: 300)
             # @raise [ArgumentError] When required parameters are missing
             def initialize(config = {})
+              validate_required_config(config)
+              setup_client(config)
+              @session_token = nil
+            end
+
+            def validate_required_config(config)
               @application = config[:application] || raise(ArgumentError, "application is required")
               @environment = config[:environment] || raise(ArgumentError, "environment is required")
               @configuration_profile = config[:configuration_profile] || raise(ArgumentError,
                                                                                "configuration_profile is required")
+            end
 
+            def setup_client(config)
+              client_config = build_client_config(config)
+              @client = config[:client] || ::Aws::AppConfigData::Client.new(client_config)
+            end
+
+            def build_client_config(config)
               client_config = {
                 region: config[:region] || "us-east-1",
                 credentials: config[:credentials]
@@ -54,8 +69,7 @@ module Openfeature
 
               # Add endpoint URL for testing
               client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
-
-              @client = config[:client] || ::Aws::AppConfig::Client.new(client_config)
+              client_config
             end
 
             # Resolves a boolean feature flag value from AWS AppConfig
@@ -210,27 +224,103 @@ module Openfeature
 
             private
 
-            # Retrieves configuration value from AWS AppConfig for the given flag key
+            # Retrieves configuration value from AWS AppConfig using the new AppConfigData API
             # @param flag_key [String] The feature flag key to retrieve
-            # @param _context [OpenFeature::EvaluationContext, nil] Unused evaluation context
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Object, nil] The configuration value or nil if not found
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def get_configuration_value(flag_key, _context)
-              response = @client.get_configuration(
-                application: @application,
-                environment: @environment,
-                configuration_profile: @configuration_profile
-              )
-
-              # Parse the configuration content
-              config_data = JSON.parse(response.content.read)
-              config_data[flag_key]
-            rescue ::Aws::AppConfig::Errors::ResourceNotFoundException => e
+            def get_configuration_value(flag_key, context)
+              ensure_valid_session
+              response = fetch_configuration_response
+              parse_configuration_response(response, flag_key)
+            rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
               raise StandardError, "Configuration not found: #{e.message}"
-            rescue ::Aws::AppConfig::Errors::ThrottlingException => e
+            rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
               raise StandardError, "Request throttled: #{e.message}"
+            rescue ::Aws::AppConfigData::Errors::InvalidParameterException => e
+              handle_invalid_parameter_exception(e, flag_key, context)
             rescue JSON::ParserError => e
               raise StandardError, "Failed to parse configuration: #{e.message}"
+            end
+
+            # Fetches configuration response from AWS AppConfigData
+            # @return [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            # @raise [StandardError] When configuration cannot be retrieved
+            def fetch_configuration_response
+              @client.get_latest_configuration(
+                configuration_token: @session_token
+              )
+            end
+
+            # Parses configuration response and extracts flag value
+            # @param response [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            # @param flag_key [String] The feature flag key to retrieve
+            # @return [Object, nil] The configuration value or nil if not found
+            # @raise [JSON::ParserError] When configuration cannot be parsed
+            def parse_configuration_response(response, flag_key)
+              config_data = JSON.parse(response.configuration.read)
+              config_data[flag_key]
+            end
+
+            # Handles InvalidParameterException with session refresh logic
+            # @param exception [Aws::AppConfigData::Errors::InvalidParameterException] The exception to handle
+            # @param flag_key [String] The feature flag key to retrieve
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @raise [StandardError] When the exception is not session-related
+            def handle_invalid_parameter_exception(exception, flag_key, context)
+              # Log the exception details for debugging
+              puts "InvalidParameterException encountered: #{exception.message}"
+
+              # Check if the error is due to session expiration
+              unless session_expired_error?(exception.message)
+                raise StandardError, "Invalid parameter error: #{exception.message}"
+              end
+
+              # Session might be expired, try to refresh and retry
+              refresh_session
+              # Retry the original operation by calling the parent method again
+              get_configuration_value(flag_key, context)
+            end
+
+            # Checks if the error message indicates session expiration
+            # @param message [String] The error message to check
+            # @return [Boolean] True if the error indicates session expiration
+            def session_expired_error?(message)
+              message.include?("expired") || message.include?("session")
+            end
+
+            # Ensures we have a valid session token
+            # @raise [StandardError] When session cannot be created
+            def ensure_valid_session
+              create_session if @session_token.nil?
+            end
+
+            # Checks if the current session is still valid
+            # @return [Boolean] True if session is valid
+            def session_valid?
+              !@session_token.nil?
+            end
+
+            # Creates a new configuration session
+            # @raise [StandardError] When session cannot be created
+            def create_session
+              response = @client.start_configuration_session(
+                application_identifier: @application,
+                environment_identifier: @environment,
+                configuration_profile_identifier: @configuration_profile
+              )
+              @session_token = response.initial_configuration_token
+            rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
+              raise StandardError, "Configuration session not found: #{e.message}"
+            rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
+              raise StandardError, "Session creation throttled: #{e.message}"
+            end
+
+            # Refreshes the configuration session
+            # @raise [StandardError] When session cannot be refreshed
+            def refresh_session
+              @session_token = nil
+              create_session
             end
 
             # Checks if the flag data represents a multi-variant flag

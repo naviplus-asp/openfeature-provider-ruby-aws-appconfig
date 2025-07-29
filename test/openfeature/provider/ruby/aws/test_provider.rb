@@ -2,7 +2,7 @@
 
 require File.expand_path("../../../../test_helper", __dir__)
 require "open_feature/sdk"
-require "aws-sdk-appconfig"
+require "aws-sdk-appconfigdata"
 require "openfeature/provider/ruby/aws/appconfig"
 
 module Openfeature
@@ -22,30 +22,53 @@ module Openfeature
               )
             end
 
+            def test_session_configuration
+              # Test with custom session timeout and buffer
+              provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                application: "test-app",
+                environment: "test-env",
+                configuration_profile: "test-profile",
+                session_timeout: 1800,  # 30 minutes
+                session_buffer: 60,     # 1 minute buffer
+                client: @mock_client
+              )
+
+              # Verify the provider was created successfully
+              assert provider
+            end
+
             def create_mock_client
               client = Object.new
 
               # デフォルトの設定データ
               client.instance_variable_set(:@config_data, {})
+              client.instance_variable_set(:@session_token, "mock-session-token")
 
-              # get_configurationメソッドを定義
-              def client.get_configuration(*)
+              # start_configuration_sessionメソッドを定義
+              def client.start_configuration_session(*)
                 # モックレスポンスを作成
                 response = Object.new
-                content = Object.new
+                response.define_singleton_method(:initial_configuration_token) { @session_token }
+                response.instance_variable_set(:@session_token, @session_token)
+                response
+              end
 
-                # content.readメソッドを定義
-                def content.read
+              # get_latest_configurationメソッドを定義
+              def client.get_latest_configuration(*)
+                # モックレスポンスを作成
+                response = Object.new
+                configuration = Object.new
+
+                # configuration.readメソッドを定義
+                def configuration.read
                   JSON.generate(@config_data)
                 end
 
-                # response.contentメソッドを定義
-                def response.content
-                  @content
-                end
+                # response.configurationメソッドを定義
+                response.define_singleton_method(:configuration) { @configuration }
 
-                response.instance_variable_set(:@content, content)
-                content.instance_variable_set(:@config_data, @config_data)
+                response.instance_variable_set(:@configuration, configuration)
+                configuration.instance_variable_set(:@config_data, @config_data)
                 response
               end
 

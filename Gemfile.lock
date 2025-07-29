@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     openfeature-provider-ruby-aws-appconfig (0.1.0)
-      aws-sdk-appconfig (~> 1.0)
+      aws-sdk-appconfigdata (~> 1.0)
       openfeature-sdk (~> 0.1)
 
 GEM
@@ -11,9 +11,6 @@ GEM
     ast (2.4.3)
     aws-eventstream (1.4.0)
     aws-partitions (1.1135.0)
-    aws-sdk-appconfig (1.68.0)
-      aws-sdk-core (~> 3, >= 3.227.0)
-      aws-sigv4 (~> 1.5)
     aws-sdk-appconfigdata (1.39.0)
       aws-sdk-core (~> 3, >= 3.227.0)
       aws-sigv4 (~> 1.1)
@@ -73,7 +70,6 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  aws-sdk-appconfig (~> 1.0)
   aws-sdk-appconfigdata (~> 1.0)
   minitest (~> 5.16)
   openfeature-provider-ruby-aws-appconfig!

@@ -35,8 +35,8 @@ Gem::Specification.new do |spec|
   # OpenFeature SDK dependency
   spec.add_dependency "openfeature-sdk", "~> 0.1"
 
-  # AWS SDK dependency for AppConfig integration
-  spec.add_dependency "aws-sdk-appconfig", "~> 1.0"
+  # AWS SDK dependency for AppConfig integration (using new AppConfigData API)
+  spec.add_dependency "aws-sdk-appconfigdata", "~> 1.0"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html

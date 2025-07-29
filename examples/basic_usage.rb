@@ -98,22 +98,31 @@ config_data = {
 }
 
 mock_client.instance_variable_set(:@config_data, config_data)
+mock_client.instance_variable_set(:@session_token, "mock-session-token")
 
-def mock_client.get_configuration(*)
+def mock_client.start_configuration_session(*)
   # Create mock response
   response = Object.new
-  content = Object.new
+  response.define_singleton_method(:initial_configuration_token) { @session_token }
+  response.instance_variable_set(:@session_token, @session_token)
+  response
+end
 
-  # Define the content.read method
-  def content.read
+def mock_client.get_latest_configuration(*)
+  # Create mock response
+  response = Object.new
+  configuration = Object.new
+
+  # Define the configuration.read method
+  def configuration.read
     JSON.generate(@config_data)
   end
 
-  # Define the response.content method
-  response.define_singleton_method(:content) { @content }
+  # Define the response.configuration method
+  response.define_singleton_method(:configuration) { @configuration }
 
-  response.instance_variable_set(:@content, content)
-  content.instance_variable_set(:@config_data, @config_data)
+  response.instance_variable_set(:@configuration, configuration)
+  configuration.instance_variable_set(:@config_data, @config_data)
   response
 end
 

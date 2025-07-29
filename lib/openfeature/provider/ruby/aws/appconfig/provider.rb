@@ -277,8 +277,8 @@ module Openfeature
                 context.attributes
               elsif context.respond_to?(:targeting_attributes)
                 context.targeting_attributes
-              elsif context.instance_variable_defined?(:@fields)
-                fields = context.instance_variable_get(:@fields)
+              elsif context.respond_to?(:fields)
+                fields = context.fields
                 # Try both string and symbol keys
                 fields["attributes"] || fields[:attributes] if fields.is_a?(Hash)
               end

@@ -236,40 +236,67 @@ module Openfeature
 
             # Retrieves configuration value from AWS AppConfig using the new AppConfigData API
             # @param flag_key [String] The feature flag key to retrieve
-            # @param _context [OpenFeature::EvaluationContext, nil] Unused evaluation context
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Object, nil] The configuration value or nil if not found
             # @raise [StandardError] When configuration cannot be retrieved or parsed
-            def get_configuration_value(flag_key, _context)
-              # Ensure we have a valid session
+            def get_configuration_value(flag_key, context)
               ensure_valid_session
-
-              # Get the latest configuration using the session token
-              response = @client.get_latest_configuration(
-                configuration_token: @session_token
-              )
-
-              # Parse the configuration content
-              config_data = JSON.parse(response.configuration.read)
-              config_data[flag_key]
+              response = fetch_configuration_response
+              parse_configuration_response(response, flag_key)
             rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
               raise StandardError, "Configuration not found: #{e.message}"
             rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
               raise StandardError, "Request throttled: #{e.message}"
             rescue ::Aws::AppConfigData::Errors::InvalidParameterException => e
-              # Log the exception details for debugging
-              puts "InvalidParameterException encountered: #{e.message}"
-
-              # Check if the error is due to session expiration
-              if e.message.include?("expired") || e.message.include?("session")
-                # Session might be expired, try to refresh
-                refresh_session
-                retry
-              else
-                # Raise a descriptive error for other causes
-                raise StandardError, "Invalid parameter error: #{e.message}"
-              end
+              handle_invalid_parameter_exception(e, flag_key, context)
             rescue JSON::ParserError => e
               raise StandardError, "Failed to parse configuration: #{e.message}"
+            end
+
+            # Fetches configuration response from AWS AppConfigData
+            # @return [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            # @raise [StandardError] When configuration cannot be retrieved
+            def fetch_configuration_response
+              @client.get_latest_configuration(
+                configuration_token: @session_token
+              )
+            end
+
+            # Parses configuration response and extracts flag value
+            # @param response [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            # @param flag_key [String] The feature flag key to retrieve
+            # @return [Object, nil] The configuration value or nil if not found
+            # @raise [JSON::ParserError] When configuration cannot be parsed
+            def parse_configuration_response(response, flag_key)
+              config_data = JSON.parse(response.configuration.read)
+              config_data[flag_key]
+            end
+
+            # Handles InvalidParameterException with session refresh logic
+            # @param exception [Aws::AppConfigData::Errors::InvalidParameterException] The exception to handle
+            # @param flag_key [String] The feature flag key to retrieve
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @raise [StandardError] When the exception is not session-related
+            def handle_invalid_parameter_exception(exception, flag_key, context)
+              # Log the exception details for debugging
+              puts "InvalidParameterException encountered: #{exception.message}"
+
+              # Check if the error is due to session expiration
+              unless session_expired_error?(exception.message)
+                raise StandardError, "Invalid parameter error: #{exception.message}"
+              end
+
+              # Session might be expired, try to refresh and retry
+              refresh_session
+              # Retry the original operation by calling the parent method again
+              get_configuration_value(flag_key, context)
+            end
+
+            # Checks if the error message indicates session expiration
+            # @param message [String] The error message to check
+            # @return [Boolean] True if the error indicates session expiration
+            def session_expired_error?(message)
+              message.include?("expired") || message.include?("session")
             end
 
             # Ensures we have a valid session token

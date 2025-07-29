@@ -18,23 +18,51 @@ module Openfeature
                 application: "test-app",
                 environment: "test-env",
                 configuration_profile: "test-profile",
+                mode: :direct_sdk,
                 client: @mock_client
               )
             end
 
-            def test_session_configuration
-              # Test with custom session timeout and buffer
+            def test_direct_sdk_mode
+              # Test direct SDK mode (default)
               provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
                 application: "test-app",
                 environment: "test-env",
                 configuration_profile: "test-profile",
-                session_timeout: 1800,  # 30 minutes
-                session_buffer: 60,     # 1 minute buffer
+                mode: :direct_sdk,
                 client: @mock_client
               )
 
               # Verify the provider was created successfully
               assert provider
+            end
+
+            def test_agent_mode
+              # Test agent mode
+              mock_http_client = create_mock_http_client
+              provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                application: "test-app",
+                environment: "test-env",
+                configuration_profile: "test-profile",
+                mode: :agent,
+                agent_endpoint: "http://localhost:2772",
+                agent_http_client: mock_http_client
+              )
+
+              # Verify the provider was created successfully
+              assert provider
+            end
+
+            def test_invalid_mode
+              # Test invalid mode raises error
+              assert_raises(ArgumentError) do
+                Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                  application: "test-app",
+                  environment: "test-env",
+                  configuration_profile: "test-profile",
+                  mode: :invalid_mode
+                )
+              end
             end
 
             def create_mock_client
@@ -78,6 +106,35 @@ module Openfeature
               end
 
               client
+            end
+
+            def create_mock_http_client
+              http_client = Class.new do
+                attr_accessor :config_data
+
+                def initialize
+                  @config_data = {}
+                end
+
+                def new(_host, _port)
+                  self
+                end
+
+                def use_ssl=(value)
+                  # Mock SSL setting
+                end
+
+                def request(_request)
+                  # Mock HTTP response
+                  response = Object.new
+                  data = config_data
+                  response.define_singleton_method(:is_a?) { |klass| klass.name == "Net::HTTPSuccess" }
+                  response.define_singleton_method(:body) { JSON.generate(data) }
+                  response
+                end
+              end
+
+              http_client.new
             end
 
             def mock_configuration_response(content)
@@ -477,6 +534,48 @@ module Openfeature
               result = @provider.fetch_boolean_value(flag_key: "feature-flag", default_value: false)
 
               assert result
+            end
+
+            def test_agent_mode_resolve_boolean_value
+              # Test agent mode with boolean value
+              mock_http_client = create_mock_http_client
+
+              provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                application: "test-app",
+                environment: "test-env",
+                configuration_profile: "test-profile",
+                mode: :agent,
+                agent_http_client: mock_http_client
+              )
+
+              # Set config data after provider creation
+              mock_http_client.config_data = { "feature-flag" => true }
+
+              result = provider.resolve_boolean_value(flag_key: "feature-flag")
+
+              assert result.resolution_details.value
+              assert_equal "default", result.resolution_details.variant
+              assert_equal "DEFAULT", result.resolution_details.reason
+            end
+
+            def test_agent_mode_resolve_string_value
+              # Test agent mode with string value
+              mock_http_client = create_mock_http_client
+              mock_http_client.config_data = { "welcome-message" => "Hello from Agent" }
+
+              provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                application: "test-app",
+                environment: "test-env",
+                configuration_profile: "test-profile",
+                mode: :agent,
+                agent_http_client: mock_http_client
+              )
+
+              result = provider.resolve_string_value(flag_key: "welcome-message")
+
+              assert_equal "Hello from Agent", result.resolution_details.value
+              assert_equal "default", result.resolution_details.variant
+              assert_equal "DEFAULT", result.resolution_details.reason
             end
           end
         end

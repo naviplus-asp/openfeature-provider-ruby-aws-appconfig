@@ -40,13 +40,12 @@ module Openfeature
             # @option config [Aws::Credentials] :credentials AWS credentials
             # @option config [String] :endpoint_url Custom endpoint URL for testing
             # @option config [Aws::AppConfigData::Client] :client Custom AWS AppConfigData client
-            # @option config [Integer] :session_timeout Session timeout in seconds (default: 3600)
-            # @option config [Integer] :session_buffer Buffer time before session expiry in seconds (default: 300)
+            # @option config [Symbol] :mode Operation mode (:direct_sdk or :agent, default: :direct_sdk)
+            # @option config [String] :agent_endpoint AppConfig Agent endpoint (default: "http://localhost:2772")
             # @raise [ArgumentError] When required parameters are missing
             def initialize(config = {})
               validate_required_config(config)
-              setup_client(config)
-              @session_token = nil
+              setup_mode(config)
             end
 
             def validate_required_config(config)
@@ -56,9 +55,30 @@ module Openfeature
                                                                                "configuration_profile is required")
             end
 
-            def setup_client(config)
+            def setup_mode(config)
+              @mode = config[:mode] || :direct_sdk
+              @agent_endpoint = config[:agent_endpoint] || "http://localhost:2772"
+
+              case @mode
+              when :direct_sdk
+                setup_direct_sdk_mode(config)
+              when :agent
+                setup_agent_mode(config)
+              else
+                raise ArgumentError, "Invalid mode: #{@mode}. Supported modes: :direct_sdk, :agent"
+              end
+            end
+
+            def setup_direct_sdk_mode(config)
               client_config = build_client_config(config)
               @client = config[:client] || ::Aws::AppConfigData::Client.new(client_config)
+              @session_token = nil
+            end
+
+            def setup_agent_mode(config)
+              require "net/http"
+              require "uri"
+              @agent_http_client = config[:agent_http_client] || Net::HTTP
             end
 
             def build_client_config(config)
@@ -120,10 +140,11 @@ module Openfeature
             # @param default_value [Object] The default value for errors
             # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
             def create_resolution_details(flag_data, context, converter, default_value)
-              if multi_variant_flag?(flag_data)
-                create_multi_variant_resolution_details(flag_data, context, converter, default_value)
-              else
+              # In agent mode, targeting is handled server-side, so we treat all flags as simple
+              if @mode == :agent || !multi_variant_flag?(flag_data)
                 create_simple_resolution_details(flag_data, converter)
+              else
+                create_multi_variant_resolution_details(flag_data, context, converter, default_value)
               end
             end
 
@@ -224,12 +245,26 @@ module Openfeature
 
             private
 
-            # Retrieves configuration value from AWS AppConfig using the new AppConfigData API
+            # Retrieves configuration value from AWS AppConfig
             # @param flag_key [String] The feature flag key to retrieve
             # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
             # @return [Object, nil] The configuration value or nil if not found
             # @raise [StandardError] When configuration cannot be retrieved or parsed
             def get_configuration_value(flag_key, context)
+              case @mode
+              when :direct_sdk
+                get_configuration_via_sdk(flag_key, context)
+              when :agent
+                get_configuration_via_agent(flag_key, context)
+              end
+            end
+
+            # Retrieves configuration value using AWS AppConfigData API (direct SDK mode)
+            # @param flag_key [String] The feature flag key to retrieve
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Object, nil] The configuration value or nil if not found
+            # @raise [StandardError] When configuration cannot be retrieved or parsed
+            def get_configuration_via_sdk(flag_key, context)
               ensure_valid_session
               response = fetch_configuration_response
               parse_configuration_response(response, flag_key)
@@ -241,6 +276,20 @@ module Openfeature
               handle_invalid_parameter_exception(e, flag_key, context)
             rescue JSON::ParserError => e
               raise StandardError, "Failed to parse configuration: #{e.message}"
+            end
+
+            # Retrieves configuration value using AWS AppConfig Agent (agent mode)
+            # @param flag_key [String] The feature flag key to retrieve
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Object, nil] The configuration value or nil if not found
+            # @raise [StandardError] When configuration cannot be retrieved or parsed
+            def get_configuration_via_agent(flag_key, context)
+              response = fetch_configuration_via_agent(context)
+              parse_agent_response(response, flag_key)
+            rescue Net::HTTPError => e
+              raise StandardError, "Agent HTTP error: #{e.message}"
+            rescue JSON::ParserError => e
+              raise StandardError, "Failed to parse agent response: #{e.message}"
             end
 
             # Fetches configuration response from AWS AppConfigData
@@ -287,6 +336,61 @@ module Openfeature
             # @return [Boolean] True if the error indicates session expiration
             def session_expired_error?(message)
               message.include?("expired") || message.include?("session")
+            end
+
+            # Fetches configuration via AppConfig Agent HTTP API
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Net::HTTPResponse] HTTP response from agent
+            # @raise [Net::HTTPError] When HTTP request fails
+            def fetch_configuration_via_agent(context)
+              uri = build_agent_uri
+              http = @agent_http_client.new(uri.host, uri.port)
+              http.use_ssl = uri.scheme == "https"
+
+              request = Net::HTTP::Get.new(uri)
+              request["Content-Type"] = "application/json"
+
+              # Add targeting context if provided
+              if context
+                context_attributes = get_context_attributes(context)
+                if context_attributes && !context_attributes.empty?
+                  request["X-Amz-Target"] = "AWSAppConfig.GetConfiguration"
+                  request.body = JSON.generate({
+                                                 Application: @application,
+                                                 Environment: @environment,
+                                                 Configuration: @configuration_profile,
+                                                 ClientId: context.targeting_key || "default",
+                                                 ClientConfigurationVersion: "1",
+                                                 ConfigurationToken: "",
+                                                 RequiredMinimumPollIntervalInSeconds: 15
+                                               })
+                end
+              end
+
+              response = http.request(request)
+
+              unless response.is_a?(Net::HTTPSuccess)
+                raise Net::HTTPError.new("HTTP #{response.code}: #{response.body}", response)
+              end
+
+              response
+            end
+
+            # Builds the URI for AppConfig Agent API
+            # @return [URI] The agent API URI
+            def build_agent_uri
+              path = "/applications/#{@application}/environments/#{@environment}/configurations/#{@configuration_profile}"
+              URI.parse("#{@agent_endpoint}#{path}")
+            end
+
+            # Parses the response from AppConfig Agent
+            # @param response [Net::HTTPResponse] HTTP response from agent
+            # @param flag_key [String] The feature flag key to retrieve
+            # @return [Object, nil] The configuration value or nil if not found
+            # @raise [JSON::ParserError] When response cannot be parsed
+            def parse_agent_response(response, flag_key)
+              config_data = JSON.parse(response.body)
+              config_data[flag_key]
             end
 
             # Ensures we have a valid session token

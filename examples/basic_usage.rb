@@ -126,14 +126,24 @@ def mock_client.get_latest_configuration(*)
   response
 end
 
-# Create the AWS AppConfig provider with mock client
+# Create the AWS AppConfig provider with mock client (Direct SDK mode)
 provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
   application: "my-application",
   environment: "production",
   configuration_profile: "feature-flags",
   region: "us-east-1",
+  mode: :direct_sdk,
   client: mock_client
 )
+
+# Example: Create provider with AppConfig Agent mode
+# provider_agent = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+#   application: "my-application",
+#   environment: "production",
+#   configuration_profile: "feature-flags",
+#   mode: :agent,
+#   agent_endpoint: "http://localhost:2772"
+# )
 
 puts "=== OpenFeature AWS AppConfig Provider Demo ==="
 puts

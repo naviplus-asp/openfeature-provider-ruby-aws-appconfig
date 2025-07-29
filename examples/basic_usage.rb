@@ -110,9 +110,7 @@ def mock_client.get_configuration(*)
   end
 
   # response.contentメソッドを定義
-  def response.content
-    @content
-  end
+  response.define_singleton_method(:content) { @content }
 
   response.instance_variable_set(:@content, content)
   content.instance_variable_set(:@config_data, @config_data)

@@ -100,7 +100,7 @@ config_data = {
 mock_client.instance_variable_set(:@config_data, config_data)
 
 def mock_client.get_configuration(*)
-  # モックレスポンスを作成
+  # Create mock response
   response = Object.new
   content = Object.new
 

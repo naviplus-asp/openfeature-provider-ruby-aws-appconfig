@@ -4,7 +4,335 @@ module Openfeature
       module Aws
         module Appconfig
           VERSION: String
-          # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+          # Client for AWS AppConfigData API
+          class Client
+            ERROR_HANDLERS: Hash[Class, Symbol]
+
+            # @param application [String] AWS AppConfig application name
+            # @param environment [String] AWS AppConfig environment name
+            # @param configuration_profile [String] AWS AppConfig configuration profile name
+            # @param options [Hash] Client configuration options
+            def initialize: (application: String, environment: String, configuration_profile: String, ?options: Hash) -> void
+
+            # @param flag_key [String] The feature flag key to retrieve
+            # @return [Object] The configuration value for the flag key
+            def get_configuration: (String) -> Object
+
+            private
+
+            # @param options [Hash] Client configuration options
+            # @return [Hash] AWS client configuration hash
+            def build_client_config: (Hash) -> Hash
+
+            # @return [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            def fetch_configuration_response: () -> Aws::AppConfigData::Types::GetLatestConfigurationResponse
+
+            # @param response [Aws::AppConfigData::Types::GetLatestConfigurationResponse] Configuration response
+            # @param flag_key [String] The feature flag key to extract
+            # @return [Object] The configuration value for the flag key
+            def parse_configuration_response: (Aws::AppConfigData::Types::GetLatestConfigurationResponse, String) -> Object
+
+            # @param error [StandardError] The error that occurred
+            # @param flag_key [String] The flag key that was being processed
+            def handle_configuration_error: (StandardError, String) -> untyped
+
+            # @param error [StandardError] The error to get handler for
+            # @return [Method] The error handler method
+            def get_error_handler: (StandardError) -> Method
+
+            # @param error [StandardError] The error to re-raise
+            # @param _flag_key [String] Unused flag key parameter
+            def re_raise_error: (StandardError, String) -> untyped
+
+            # @param error [Aws::AppConfigData::Errors::ResourceNotFoundException] The resource not found error
+            def handle_resource_not_found_error: (Aws::AppConfigData::Errors::ResourceNotFoundException) -> untyped
+
+            # @param error [Aws::AppConfigData::Errors::ThrottlingException] The throttling error
+            def handle_throttling_error: (Aws::AppConfigData::Errors::ThrottlingException) -> untyped
+
+            # @param error [JSON::ParserError] The JSON parsing error
+            def handle_parser_error: (JSON::ParserError) -> untyped
+
+            # @param exception [Aws::AppConfigData::Errors::InvalidParameterException] The invalid parameter exception
+            # @param flag_key [String] The flag key being processed
+            # @return [Object] Configuration value after session refresh
+            def handle_invalid_parameter_exception: (Aws::AppConfigData::Errors::InvalidParameterException, String) -> Object
+
+            # Ensures a valid session exists before making requests
+            def ensure_valid_session: () -> void
+
+            # Creates a new configuration session
+            def create_session: () -> void
+
+            # Refreshes the current session by clearing token and creating new session
+            def refresh_session: () -> void
+
+            # @param message [String] The error message to check
+            # @return [Boolean] True if the error indicates session expiry
+            def session_expired_error?: (String) -> bool
+          end
+
+          # Client for AWS AppConfig Agent HTTP API
+          class AgentClient
+            # @param application [String] AWS AppConfig application name
+            # @param environment [String] AWS AppConfig environment name
+            # @param configuration_profile [String] AWS AppConfig configuration profile name
+            # @param agent_endpoint [String] AppConfig Agent endpoint URL
+            # @param agent_http_client [Class] Custom HTTP client class for testing
+            def initialize: (application: String, environment: String, configuration_profile: String, ?agent_endpoint: String, ?agent_http_client: Class) -> void
+
+            # @param flag_key [String] The feature flag key to retrieve
+            # @return [Object] The configuration value for the flag key
+            def get_configuration: (String) -> Object
+
+            private
+
+            # @param uri [URI] The agent endpoint URI
+            # @return [Net::HTTP] Configured HTTP client
+            def create_http_client: (URI) -> Net::HTTP
+
+            # @param uri [URI] The agent endpoint URI
+            # @return [Net::HTTP::Get] Configured HTTP GET request
+            def create_request: (URI) -> Net::HTTP::Get
+
+            # @param http [Net::HTTP] The HTTP client
+            # @param request [Net::HTTP::Get] The HTTP request
+            # @return [Net::HTTPResponse] The HTTP response
+            def send_request: (Net::HTTP, Net::HTTP::Get) -> Net::HTTPResponse
+
+            # @param response [Net::HTTPResponse] The HTTP response
+            # @param flag_key [String] The feature flag key to extract
+            # @return [Object] The configuration value for the flag key
+            def parse_response: (Net::HTTPResponse, String) -> Object
+
+            # @return [URI] The agent API URI
+            def build_agent_uri: () -> URI
+          end
+
+          # OpenFeature provider for AWS AppConfig
+          class Provider
+            include OpenFeature::SDK::Provider
+
+            OPERATOR_METHODS: Hash[String, Symbol]
+
+            attr_reader client: Client | AgentClient
+            attr_reader application: String
+            attr_reader environment: String
+            attr_reader configuration_profile: String
+
+            # @param config [Hash] Configuration hash containing AWS AppConfig settings
+            def initialize: (?Hash) -> void
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the boolean value
+            def resolve_boolean_value: (flag_key: String, ?context: OpenFeature::EvaluationContext?) -> OpenFeature::SDK::EvaluationDetails
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the string value
+            def resolve_string_value: (flag_key: String, ?context: OpenFeature::EvaluationContext?) -> OpenFeature::SDK::EvaluationDetails
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the numeric value
+            def resolve_number_value: (flag_key: String, ?context: OpenFeature::EvaluationContext?) -> OpenFeature::SDK::EvaluationDetails
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the object value
+            def resolve_object_value: (flag_key: String, ?context: OpenFeature::EvaluationContext?) -> OpenFeature::SDK::EvaluationDetails
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Boolean] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Boolean] The resolved boolean value or default value
+            def fetch_boolean_value: (flag_key: String, default_value: bool, ?evaluation_context: OpenFeature::EvaluationContext?) -> bool
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [String] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [String] The resolved string value or default value
+            def fetch_string_value: (flag_key: String, default_value: String, ?evaluation_context: OpenFeature::EvaluationContext?) -> String
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Numeric] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Numeric] The resolved numeric value or default value
+            def fetch_number_value: (flag_key: String, default_value: Numeric, ?evaluation_context: OpenFeature::EvaluationContext?) -> Numeric
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Hash] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Hash] The resolved object value or default value
+            def fetch_object_value: (flag_key: String, default_value: Hash, ?evaluation_context: OpenFeature::EvaluationContext?) -> Hash
+
+            private
+
+            # @param config [Hash] Configuration hash to validate
+            def validate_required_config: (Hash) -> void
+
+            # @param config [Hash] Configuration hash containing mode and client settings
+            def setup_mode: (Hash) -> void
+
+            # @param flag_key [String] The feature flag key to resolve
+            # @param context [OpenFeature::EvaluationContext, nil] Optional evaluation context for targeting
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::EvaluationDetails] Evaluation details containing the value
+            def resolve_value: (flag_key: String, converter: Symbol, default_value: Object, ?context: OpenFeature::EvaluationContext?) -> OpenFeature::SDK::EvaluationDetails
+
+            # @param flag_key [String] The feature flag key to retrieve
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Object, nil] The configuration value or nil if not found
+            def get_configuration_value: (String, OpenFeature::EvaluationContext?) -> Object?
+
+            # @param flag_data [Object] The flag data from AWS AppConfig
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_resolution_details: (Object, OpenFeature::EvaluationContext?, Symbol, Object) -> OpenFeature::SDK::Provider::ResolutionDetails
+
+            # @param flag_data [Hash] The multi-variant flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @param converter [Symbol] The conversion method to use
+            # @param default_value [Object] The default value for errors
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_multi_variant_resolution_details: (Hash, OpenFeature::EvaluationContext?, Symbol, Object) -> OpenFeature::SDK::Provider::ResolutionDetails
+
+            # @param flag_data [Object] The flag data
+            # @param converter [Symbol] The conversion method to use
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Resolution details
+            def create_simple_resolution_details: (Object, Symbol) -> OpenFeature::SDK::Provider::ResolutionDetails
+
+            # @param default_value [Object] The default value
+            # @param error_message [String] The error message
+            # @return [OpenFeature::SDK::Provider::ResolutionDetails] Error resolution details
+            def create_error_resolution_details: (Object, String) -> OpenFeature::SDK::Provider::ResolutionDetails
+
+            # @param flag_data [Object] The flag data to check
+            # @return [Boolean] True if it's a multi-variant flag
+            def multi_variant_flag?: (Object) -> bool
+
+            # @param flag_data [Hash] The multi-variant flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context for targeting
+            # @return [Hash] The selected variant
+            def select_variant: (Hash, OpenFeature::EvaluationContext?) -> Hash?
+
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Hash, nil] Context attributes hash or nil if no context
+            def get_context_attributes: (OpenFeature::EvaluationContext?) -> Hash?
+
+            # @param flag_data [Hash] The multi-variant flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Hash, nil] The matching variant or nil if no match
+            def evaluate_targeting_rules: (Hash, OpenFeature::EvaluationContext?) -> Hash?
+
+            # @param rule [Hash] The targeting rule to evaluate
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Boolean] True if the rule matches
+            def rule_matches?: (Hash, OpenFeature::EvaluationContext?) -> bool
+
+            # @param condition [Hash] The condition to evaluate
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @return [Boolean] True if the condition matches
+            def condition_matches?: (Hash, OpenFeature::EvaluationContext?) -> bool
+
+            # @param operator [String] The operator to apply
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if the operator condition is met
+            def evaluate_operator?: (String, Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if values are equal
+            def equals_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if values are not equal
+            def not_equals_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value contains target value
+            def contains_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value does not contain target value
+            def not_contains_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value starts with target value
+            def starts_with_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value ends with target value
+            def ends_with_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is greater than target value
+            def greater_than_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is greater than or equal to target value
+            def greater_than_or_equal_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is less than target value
+            def less_than_operator?: (Object, Object) -> bool
+
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is less than or equal to target value
+            def less_than_or_equal_operator?: (Object, Object) -> bool
+
+            # @param value [Object] The value to check
+            # @return [Boolean] True if the value can be converted to float
+            def valid_float?: (Object) -> bool
+
+            # @param variants [Array] Array of variant hashes
+            # @param variant_name [String] The name of the variant to find
+            # @return [Hash, nil] The variant hash or nil if not found
+            def find_variant_by_name: (Array, String) -> Hash?
+
+            # @param value [Object] The value to convert
+            # @return [Boolean] The converted boolean value
+            def convert_to_boolean: (Object) -> bool
+
+            # @param value [Object] The value to convert
+            # @return [String] The converted string value
+            def convert_to_string: (Object) -> String
+
+            # @param value [Object] The value to convert
+            # @return [Numeric] The converted numeric value
+            def convert_to_number: (Object) -> Numeric
+
+            # @param value [Object] The value to convert
+            # @return [Hash] The converted hash value
+            def convert_to_object: (Object) -> Hash
+
+            # @param flag_data [Hash] The flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @param selected_variant [Hash] The selected variant
+            # @return [String] The resolution reason
+            def determine_resolution_reason: (Hash, OpenFeature::EvaluationContext?, Hash) -> String
+
+            # @param flag_data [Hash] The flag data
+            # @param context [OpenFeature::EvaluationContext, nil] Evaluation context
+            # @param selected_variant [Hash] The selected variant
+            # @return [Boolean] True if a targeting rule matches
+            def targeting_rule_matches?: (Hash, OpenFeature::EvaluationContext?, Hash) -> bool
+          end
         end
       end
     end

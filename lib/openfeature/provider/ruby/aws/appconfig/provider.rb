@@ -50,6 +50,9 @@ module Openfeature
               setup_mode(config)
             end
 
+            # Validates required configuration parameters
+            # @param config [Hash] Configuration hash to validate
+            # @raise [ArgumentError] When required parameters are missing
             def validate_required_config(config)
               @application = config[:application] || raise(ArgumentError, "application is required")
               @environment = config[:environment] || raise(ArgumentError, "environment is required")
@@ -57,6 +60,9 @@ module Openfeature
                                                                                "configuration_profile is required")
             end
 
+            # Sets up the operation mode and initializes appropriate client
+            # @param config [Hash] Configuration hash containing mode and client settings
+            # @raise [ArgumentError] When invalid mode is specified
             def setup_mode(config)
               @mode = config[:mode] || :direct_sdk
               case @mode
@@ -122,6 +128,11 @@ module Openfeature
             end
 
             # Required methods for OpenFeature SDK 0.4.0 compatibility
+            # Fetches boolean value with fallback to default on error
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Boolean] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Boolean] The resolved boolean value or default value
             def fetch_boolean_value(flag_key:, default_value:, evaluation_context: nil)
               result = resolve_boolean_value(flag_key: flag_key, context: evaluation_context)
               result.value
@@ -129,6 +140,11 @@ module Openfeature
               default_value
             end
 
+            # Fetches string value with fallback to default on error
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [String] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [String] The resolved string value or default value
             def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
               result = resolve_string_value(flag_key: flag_key, context: evaluation_context)
               result.value
@@ -136,6 +152,11 @@ module Openfeature
               default_value
             end
 
+            # Fetches numeric value with fallback to default on error
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Numeric] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Numeric] The resolved numeric value or default value
             def fetch_number_value(flag_key:, default_value:, evaluation_context: nil)
               result = resolve_number_value(flag_key: flag_key, context: evaluation_context)
               result.value
@@ -143,6 +164,11 @@ module Openfeature
               default_value
             end
 
+            # Fetches object value with fallback to default on error
+            # @param flag_key [String] The feature flag key to resolve
+            # @param default_value [Hash] Default value to return on error
+            # @param evaluation_context [OpenFeature::EvaluationContext, nil] Optional evaluation context
+            # @return [Hash] The resolved object value or default value
             def fetch_object_value(flag_key:, default_value:, evaluation_context: nil)
               result = resolve_object_value(flag_key: flag_key, context: evaluation_context)
               result.value
@@ -358,48 +384,88 @@ module Openfeature
             end
 
             # Operator methods for targeting rule evaluation
+            # Equality operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if values are equal
             def equals_operator?(context_value, value)
               context_value == value
             end
 
+            # Inequality operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if values are not equal
             def not_equals_operator?(context_value, value)
               context_value != value
             end
 
+            # Contains operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value contains target value
             def contains_operator?(context_value, value)
               context_value.to_s.include?(value.to_s)
             end
 
+            # Not contains operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value does not contain target value
             def not_contains_operator?(context_value, value)
               !context_value.to_s.include?(value.to_s)
             end
 
+            # Starts with operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value starts with target value
             def starts_with_operator?(context_value, value)
               context_value.to_s.start_with?(value.to_s)
             end
 
+            # Ends with operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value ends with target value
             def ends_with_operator?(context_value, value)
               context_value.to_s.end_with?(value.to_s)
             end
 
+            # Greater than operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is greater than target value
             def greater_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
               context_value.to_f > value.to_f
             end
 
+            # Greater than or equal operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is greater than or equal to target value
             def greater_than_or_equal_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
               context_value.to_f >= value.to_f
             end
 
+            # Less than operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is less than target value
             def less_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
               context_value.to_f < value.to_f
             end
 
+            # Less than or equal operator for targeting evaluation
+            # @param context_value [Object] The context value
+            # @param value [Object] The target value
+            # @return [Boolean] True if context value is less than or equal to target value
             def less_than_or_equal_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
 
@@ -425,6 +491,9 @@ module Openfeature
             end
 
             # Conversion methods for different data types
+            # Converts value to boolean
+            # @param value [Object] The value to convert
+            # @return [Boolean] The converted boolean value
             def convert_to_boolean(value)
               case value
               when true, false
@@ -438,10 +507,16 @@ module Openfeature
               end
             end
 
+            # Converts value to string
+            # @param value [Object] The value to convert
+            # @return [String] The converted string value
             def convert_to_string(value)
               value.to_s
             end
 
+            # Converts value to number (integer or float)
+            # @param value [Object] The value to convert
+            # @return [Numeric] The converted numeric value
             def convert_to_number(value)
               case value
               when Numeric
@@ -459,6 +534,9 @@ module Openfeature
               0
             end
 
+            # Converts value to object (Hash)
+            # @param value [Object] The value to convert
+            # @return [Hash] The converted hash value
             def convert_to_object(value)
               case value
               when Hash

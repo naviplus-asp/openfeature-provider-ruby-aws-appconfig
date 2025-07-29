@@ -162,6 +162,245 @@ module Openfeature
               assert_empty(result.resolution_details.value)
             end
 
+            # Multi-variant flag tests
+            def test_multi_variant_boolean_flag_default
+              config = {
+                "feature-flag" => {
+                  "variants" => [
+                    { "name" => "on", "value" => true },
+                    { "name" => "off", "value" => false }
+                  ],
+                  "defaultVariant" => "off"
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              result = @provider.resolve_boolean_value(flag_key: "feature-flag")
+
+              refute result.resolution_details.value
+              assert_equal "off", result.resolution_details.variant
+              assert_equal "DEFAULT", result.resolution_details.reason
+            end
+
+            def test_multi_variant_string_flag_with_targeting
+              config = {
+                "welcome-message" => {
+                  "variants" => [
+                    { "name" => "english", "value" => "Hello World" },
+                    { "name" => "japanese", "value" => "こんにちは世界" },
+                    { "name" => "spanish", "value" => "Hola Mundo" }
+                  ],
+                  "defaultVariant" => "english",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "language", "operator" => "equals", "value" => "ja" }
+                      ],
+                      "variant" => "japanese"
+                    },
+                    {
+                      "conditions" => [
+                        { "attribute" => "language", "operator" => "equals", "value" => "es" }
+                      ],
+                      "variant" => "spanish"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              context = OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-123",
+                attributes: { "language" => "ja" }
+              )
+
+              result = @provider.resolve_string_value(flag_key: "welcome-message", context: context)
+
+              assert_equal "こんにちは世界", result.resolution_details.value
+              assert_equal "japanese", result.resolution_details.variant
+              assert_equal "TARGETING_MATCH", result.resolution_details.reason
+            end
+
+            def test_multi_variant_number_flag_with_complex_targeting
+              config = {
+                "discount-percentage" => {
+                  "variants" => [
+                    { "name" => "none", "value" => 0 },
+                    { "name" => "standard", "value" => 10 },
+                    { "name" => "premium", "value" => 20 },
+                    { "name" => "vip", "value" => 30 }
+                  ],
+                  "defaultVariant" => "none",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "plan", "operator" => "equals", "value" => "premium" },
+                        { "attribute" => "country", "operator" => "equals", "value" => "US" }
+                      ],
+                      "variant" => "premium"
+                    },
+                    {
+                      "conditions" => [
+                        { "attribute" => "plan", "operator" => "equals", "value" => "vip" }
+                      ],
+                      "variant" => "vip"
+                    },
+                    {
+                      "conditions" => [
+                        { "attribute" => "plan", "operator" => "equals", "value" => "standard" }
+                      ],
+                      "variant" => "standard"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              context = OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-456",
+                attributes: { "plan" => "premium", "country" => "US" }
+              )
+
+              result = @provider.resolve_number_value(flag_key: "discount-percentage", context: context)
+
+              assert_equal 20, result.resolution_details.value
+              assert_equal "premium", result.resolution_details.variant
+              assert_equal "TARGETING_MATCH", result.resolution_details.reason
+            end
+
+            def test_multi_variant_object_flag_with_targeting
+              config = {
+                "user-theme" => {
+                  "variants" => [
+                    { "name" => "light", "value" => { "theme" => "light", "accent" => "blue" } },
+                    { "name" => "dark", "value" => { "theme" => "dark", "accent" => "green" } },
+                    { "name" => "custom", "value" => { "theme" => "custom", "accent" => "purple" } }
+                  ],
+                  "defaultVariant" => "light",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "preference", "operator" => "contains", "value" => "dark" }
+                      ],
+                      "variant" => "dark"
+                    },
+                    {
+                      "conditions" => [
+                        { "attribute" => "user_type", "operator" => "equals", "value" => "admin" }
+                      ],
+                      "variant" => "custom"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              context = OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-789",
+                attributes: { "preference" => "dark_mode", "user_type" => "regular" }
+              )
+
+              result = @provider.resolve_object_value(flag_key: "user-theme", context: context)
+
+              expected = { "theme" => "dark", "accent" => "green" }
+
+              assert_equal expected, result.resolution_details.value
+              assert_equal "dark", result.resolution_details.variant
+              assert_equal "TARGETING_MATCH", result.resolution_details.reason
+            end
+
+            def test_multi_variant_flag_no_context_falls_back_to_default
+              config = {
+                "feature-flag" => {
+                  "variants" => [
+                    { "name" => "on", "value" => true },
+                    { "name" => "off", "value" => false }
+                  ],
+                  "defaultVariant" => "on",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "user_type", "operator" => "equals", "value" => "admin" }
+                      ],
+                      "variant" => "off"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              result = @provider.resolve_boolean_value(flag_key: "feature-flag")
+
+              assert result.resolution_details.value
+              assert_equal "on", result.resolution_details.variant
+              assert_equal "DEFAULT", result.resolution_details.reason
+            end
+
+            def test_multi_variant_flag_no_matching_rule_falls_back_to_default
+              config = {
+                "feature-flag" => {
+                  "variants" => [
+                    { "name" => "on", "value" => true },
+                    { "name" => "off", "value" => false }
+                  ],
+                  "defaultVariant" => "off",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "user_type", "operator" => "equals", "value" => "admin" }
+                      ],
+                      "variant" => "on"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              context = OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-123",
+                attributes: { "user_type" => "regular" }
+              )
+
+              result = @provider.resolve_boolean_value(flag_key: "feature-flag", context: context)
+
+              refute result.resolution_details.value
+              assert_equal "off", result.resolution_details.variant
+              assert_equal "DEFAULT", result.resolution_details.reason
+            end
+
+            def test_targeting_operators
+              config = {
+                "test-flag" => {
+                  "variants" => [
+                    { "name" => "match", "value" => "matched" },
+                    { "name" => "default", "value" => "default" }
+                  ],
+                  "defaultVariant" => "default",
+                  "targetingRules" => [
+                    {
+                      "conditions" => [
+                        { "attribute" => "string_attr", "operator" => "starts_with", "value" => "test" },
+                        { "attribute" => "number_attr", "operator" => "greater_than", "value" => 10 }
+                      ],
+                      "variant" => "match"
+                    }
+                  ]
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              context = OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-123",
+                attributes: { "string_attr" => "test_value", "number_attr" => 15 }
+              )
+
+              result = @provider.resolve_string_value(flag_key: "test-flag", context: context)
+
+              assert_equal "matched", result.resolution_details.value
+              assert_equal "match", result.resolution_details.variant
+              assert_equal "TARGETING_MATCH", result.resolution_details.reason
+            end
+
             # OpenFeature SDK 0.4.0 compatibility tests
             def test_fetch_boolean_value_success
               mock_configuration_response('{"feature-flag": true}')
@@ -189,6 +428,23 @@ module Openfeature
               result = @provider.fetch_object_value(flag_key: "settings", default_value: {})
 
               assert_equal({ "theme" => "dark" }, result)
+            end
+
+            def test_fetch_multi_variant_boolean_value
+              config = {
+                "feature-flag" => {
+                  "variants" => [
+                    { "name" => "on", "value" => true },
+                    { "name" => "off", "value" => false }
+                  ],
+                  "defaultVariant" => "on"
+                }
+              }
+              mock_configuration_response(JSON.generate(config))
+
+              result = @provider.fetch_boolean_value(flag_key: "feature-flag", default_value: false)
+
+              assert result
             end
 
             def test_client_integration

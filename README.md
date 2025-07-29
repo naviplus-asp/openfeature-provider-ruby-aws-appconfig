@@ -7,6 +7,9 @@ A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature f
 - ✅ Full OpenFeature specification compliance
 - ✅ AWS AppConfig integration
 - ✅ Support for all data types (boolean, string, number, object)
+- ✅ **Multi-variant feature flags with targeting rules**
+- ✅ **Advanced targeting operators (equals, contains, starts_with, etc.)**
+- ✅ **Complex targeting conditions with multiple attributes**
 - ✅ Comprehensive error handling
 - ✅ Type conversion and validation
 - ✅ Unit tests with mocking
@@ -37,7 +40,7 @@ require "openfeature/provider/ruby/aws/appconfig"
 client = OpenFeature::SDK::Client.new
 
 # Create and register the AWS AppConfig provider
-provider = Openfeature::Provider::Ruby::Aws::Appconfig.create_provider(
+provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
   application: "my-application",
   environment: "production",
   configuration_profile: "feature-flags",
@@ -51,6 +54,28 @@ is_feature_enabled = client.get_boolean_value("new-feature", false)
 welcome_message = client.get_string_value("welcome-message", "Welcome!")
 max_retries = client.get_number_value("max-retries", 3)
 user_config = client.get_object_value("user-config", {})
+```
+
+### Multi-Variant Feature Flags
+
+The provider supports AWS AppConfig's multi-variant feature flags with targeting rules:
+
+```ruby
+# Create evaluation context with user attributes
+context = OpenFeature::EvaluationContext.new(
+  targeting_key: "user-123",
+  attributes: {
+    "language" => "ja",
+    "country" => "JP",
+    "plan" => "premium",
+    "user_type" => "admin"
+  }
+)
+
+# Resolve multi-variant flags with context
+personalized_message = client.get_string_value("welcome-message", "Hello", context)
+discount_percentage = client.get_number_value("discount-percentage", 0, context)
+user_theme = client.get_object_value("user-theme", {}, context)
 ```
 
 ### With Evaluation Context
@@ -144,7 +169,7 @@ bundle exec rake test
 
 ## AWS AppConfig Configuration
 
-### Example Configuration JSON
+### Simple Feature Flags
 
 ```json
 {
@@ -158,12 +183,99 @@ bundle exec rake test
 }
 ```
 
+### Multi-Variant Feature Flags
+
+The provider supports AWS AppConfig's multi-variant feature flag format:
+
+```json
+{
+  "welcome-message": {
+    "variants": [
+      { "name": "english", "value": "Hello World" },
+      { "name": "japanese", "value": "こんにちは世界" },
+      { "name": "spanish", "value": "Hola Mundo" }
+    ],
+    "defaultVariant": "english",
+    "targetingRules": [
+      {
+        "conditions": [
+          { "attribute": "language", "operator": "equals", "value": "ja" }
+        ],
+        "variant": "japanese"
+      },
+      {
+        "conditions": [
+          { "attribute": "language", "operator": "equals", "value": "es" }
+        ],
+        "variant": "spanish"
+      }
+    ]
+  },
+  "discount-percentage": {
+    "variants": [
+      { "name": "none", "value": 0 },
+      { "name": "standard", "value": 10 },
+      { "name": "premium", "value": 20 },
+      { "name": "vip", "value": 30 }
+    ],
+    "defaultVariant": "none",
+    "targetingRules": [
+      {
+        "conditions": [
+          { "attribute": "plan", "operator": "equals", "value": "premium" },
+          { "attribute": "country", "operator": "equals", "value": "US" }
+        ],
+        "variant": "premium"
+      },
+      {
+        "conditions": [
+          { "attribute": "plan", "operator": "equals", "value": "vip" }
+        ],
+        "variant": "vip"
+      }
+    ]
+  }
+}
+```
+
+### Supported Targeting Operators
+
+The provider supports the following targeting operators:
+
+- `equals`: Exact match
+- `not_equals`: Not equal
+- `contains`: String contains
+- `not_contains`: String does not contain
+- `starts_with`: String starts with
+- `ends_with`: String ends with
+- `greater_than`: Numeric comparison
+- `greater_than_or_equal`: Numeric comparison
+- `less_than`: Numeric comparison
+- `less_than_or_equal`: Numeric comparison
+
+### Multi-Variant Flag Structure
+
+Each multi-variant flag should have:
+
+1. **`variants`**: Array of variant objects with `name` and `value` properties
+2. **`defaultVariant`**: Name of the default variant to use when no targeting rules match
+3. **`targetingRules`** (optional): Array of targeting rules
+
+Each targeting rule contains:
+- **`conditions`**: Array of conditions (all must match for the rule to apply)
+- **`variant`**: Name of the variant to return when conditions match
+
+Each condition contains:
+- **`attribute`**: The attribute name from the evaluation context
+- **`operator`**: The comparison operator
+- **`value`**: The value to compare against
+
 ### AWS AppConfig Setup
 
 1. Create an application in AWS AppConfig
 2. Create an environment
 3. Create a configuration profile
-4. Create a configuration version with your JSON
+4. Create a configuration version with your JSON (simple or multi-variant)
 5. Deploy the configuration
 
 ## Error Handling
@@ -174,6 +286,7 @@ The provider handles various error scenarios:
 - **Throttling**: Handles AWS throttling exceptions
 - **Parse Errors**: Handles JSON parsing errors
 - **Type Conversion**: Graceful handling of type mismatches
+- **Targeting Rule Errors**: Falls back to default variant when targeting fails
 
 ## Contributing
 

@@ -22,6 +22,21 @@ module Openfeature
               )
             end
 
+            def test_session_configuration
+              # Test with custom session timeout and buffer
+              provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
+                application: "test-app",
+                environment: "test-env",
+                configuration_profile: "test-profile",
+                session_timeout: 1800,  # 30 minutes
+                session_buffer: 60,     # 1 minute buffer
+                client: @mock_client
+              )
+
+              # Verify the provider was created successfully
+              assert provider
+            end
+
             def create_mock_client
               client = Object.new
 

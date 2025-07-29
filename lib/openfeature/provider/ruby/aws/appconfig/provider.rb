@@ -40,13 +40,28 @@ module Openfeature
             # @option config [Aws::Credentials] :credentials AWS credentials
             # @option config [String] :endpoint_url Custom endpoint URL for testing
             # @option config [Aws::AppConfigData::Client] :client Custom AWS AppConfigData client
+            # @option config [Integer] :session_timeout Session timeout in seconds (default: 3600)
+            # @option config [Integer] :session_buffer Buffer time before session expiry in seconds (default: 300)
             # @raise [ArgumentError] When required parameters are missing
             def initialize(config = {})
+              validate_required_config(config)
+              setup_client(config)
+              setup_session_management(config)
+            end
+
+            def validate_required_config(config)
               @application = config[:application] || raise(ArgumentError, "application is required")
               @environment = config[:environment] || raise(ArgumentError, "environment is required")
               @configuration_profile = config[:configuration_profile] || raise(ArgumentError,
                                                                                "configuration_profile is required")
+            end
 
+            def setup_client(config)
+              client_config = build_client_config(config)
+              @client = config[:client] || ::Aws::AppConfigData::Client.new(client_config)
+            end
+
+            def build_client_config(config)
               client_config = {
                 region: config[:region] || "us-east-1",
                 credentials: config[:credentials]
@@ -54,13 +69,17 @@ module Openfeature
 
               # Add endpoint URL for testing
               client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
+              client_config
+            end
 
-              # Use the new AppConfigData client instead of the deprecated AppConfig client
-              @client = config[:client] || ::Aws::AppConfigData::Client.new(client_config)
-
+            def setup_session_management(config)
               # Initialize session management
               @session_token = nil
               @session_expires_at = nil
+
+              # Session configuration
+              @session_timeout = config[:session_timeout] || 3600 # Default 1 hour
+              @session_buffer = config[:session_buffer] || 300    # 5 minute buffer before expiry
             end
 
             # Resolves a boolean feature flag value from AWS AppConfig
@@ -271,8 +290,14 @@ module Openfeature
               )
 
               @session_token = response.initial_configuration_token
-              # Set session expiry to 1 hour from now (AWS sessions typically last 1 hour)
-              @session_expires_at = Time.now + 3600
+
+              # Try to get actual session expiry from response, fallback to configured timeout
+              @session_expires_at = if response.respond_to?(:session_expires_at) && response.session_expires_at
+                                      response.session_expires_at
+                                    else
+                                      # Use configured timeout with buffer to ensure we refresh before actual expiry
+                                      Time.now + @session_timeout - @session_buffer
+                                    end
             rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
               raise StandardError, "Configuration session not found: #{e.message}"
             rescue ::Aws::AppConfigData::Errors::ThrottlingException => e

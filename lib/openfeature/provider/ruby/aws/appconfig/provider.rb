@@ -369,6 +369,7 @@ module Openfeature
 
             def greater_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
+
               Float(context_value) > Float(value)
             rescue ArgumentError, TypeError
               false
@@ -376,6 +377,7 @@ module Openfeature
 
             def greater_than_or_equal_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
+
               Float(context_value) >= Float(value)
             rescue ArgumentError, TypeError
               false
@@ -383,13 +385,26 @@ module Openfeature
 
             def less_than_operator?(context_value, value)
               return false unless valid_float?(context_value) && valid_float?(value)
+
               Float(context_value) < Float(value)
             rescue ArgumentError, TypeError
               false
             end
 
             def less_than_or_equal_operator?(context_value, value)
+              return false unless valid_float?(context_value) && valid_float?(value)
+
               Float(context_value) <= Float(value)
+            rescue ArgumentError, TypeError
+              false
+            end
+
+            # Validates if a value can be converted to a float
+            # @param value [Object] The value to validate
+            # @return [Boolean] True if the value can be converted to float
+            def valid_float?(value)
+              Float(value)
+              true
             rescue ArgumentError, TypeError
               false
             end

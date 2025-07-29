@@ -255,10 +255,19 @@ module Openfeature
               raise StandardError, "Configuration not found: #{e.message}"
             rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
               raise StandardError, "Request throttled: #{e.message}"
-            rescue ::Aws::AppConfigData::Errors::InvalidParameterException => _e
-              # Session might be expired, try to refresh
-              refresh_session
-              retry
+            rescue ::Aws::AppConfigData::Errors::InvalidParameterException => e
+              # Log the exception details for debugging
+              puts "InvalidParameterException encountered: #{e.message}"
+
+              # Check if the error is due to session expiration
+              if e.message.include?("expired") || e.message.include?("session")
+                # Session might be expired, try to refresh
+                refresh_session
+                retry
+              else
+                # Raise a descriptive error for other causes
+                raise StandardError, "Invalid parameter error: #{e.message}"
+              end
             rescue JSON::ParserError => e
               raise StandardError, "Failed to parse configuration: #{e.message}"
             end

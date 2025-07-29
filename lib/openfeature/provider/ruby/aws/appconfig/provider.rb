@@ -46,7 +46,7 @@ module Openfeature
             def initialize(config = {})
               validate_required_config(config)
               setup_client(config)
-              setup_session_management(config)
+              @session_token = nil
             end
 
             def validate_required_config(config)
@@ -70,16 +70,6 @@ module Openfeature
               # Add endpoint URL for testing
               client_config[:endpoint] = config[:endpoint_url] if config[:endpoint_url]
               client_config
-            end
-
-            def setup_session_management(config)
-              # Initialize session management
-              @session_token = nil
-              @session_expires_at = nil
-
-              # Session configuration
-              @session_timeout = config[:session_timeout] || 3600 # Default 1 hour
-              @session_buffer = config[:session_buffer] || 300    # 5 minute buffer before expiry
             end
 
             # Resolves a boolean feature flag value from AWS AppConfig
@@ -302,18 +292,13 @@ module Openfeature
             # Ensures we have a valid session token
             # @raise [StandardError] When session cannot be created
             def ensure_valid_session
-              return if session_valid?
-
-              create_session
+              create_session if @session_token.nil?
             end
 
             # Checks if the current session is still valid
             # @return [Boolean] True if session is valid
             def session_valid?
-              return false if @session_token.nil?
-              return false if @session_expires_at.nil?
-
-              Time.now < @session_expires_at
+              !@session_token.nil?
             end
 
             # Creates a new configuration session
@@ -324,16 +309,7 @@ module Openfeature
                 environment_identifier: @environment,
                 configuration_profile_identifier: @configuration_profile
               )
-
               @session_token = response.initial_configuration_token
-
-              # Try to get actual session expiry from response, fallback to configured timeout
-              @session_expires_at = if response.respond_to?(:session_expires_at) && response.session_expires_at
-                                      response.session_expires_at
-                                    else
-                                      # Use configured timeout with buffer to ensure we refresh before actual expiry
-                                      Time.now + @session_timeout - @session_buffer
-                                    end
             rescue ::Aws::AppConfigData::Errors::ResourceNotFoundException => e
               raise StandardError, "Configuration session not found: #{e.message}"
             rescue ::Aws::AppConfigData::Errors::ThrottlingException => e
@@ -344,7 +320,6 @@ module Openfeature
             # @raise [StandardError] When session cannot be refreshed
             def refresh_session
               @session_token = nil
-              @session_expires_at = nil
               create_session
             end
 

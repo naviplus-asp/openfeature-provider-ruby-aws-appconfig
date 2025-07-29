@@ -368,19 +368,35 @@ module Openfeature
             end
 
             def greater_than_operator?(context_value, value)
-              context_value.to_f > value.to_f
+              begin
+                Float(context_value) > Float(value)
+              rescue ArgumentError, TypeError
+                false
+              end
             end
 
             def greater_than_or_equal_operator?(context_value, value)
-              context_value.to_f >= value.to_f
+              begin
+                Float(context_value) >= Float(value)
+              rescue ArgumentError, TypeError
+                false
+              end
             end
 
             def less_than_operator?(context_value, value)
-              context_value.to_f < value.to_f
+              begin
+                Float(context_value) < Float(value)
+              rescue ArgumentError, TypeError
+                false
+              end
             end
 
             def less_than_or_equal_operator?(context_value, value)
-              context_value.to_f <= value.to_f
+              begin
+                Float(context_value) <= Float(value)
+              rescue ArgumentError, TypeError
+                false
+              end
             end
 
             # Finds a variant by name

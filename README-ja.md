@@ -7,7 +7,7 @@ AWS AppConfigと統合してフィーチャーフラグ管理を行うOpenFeatur
 - ✅ OpenFeature仕様の完全準拠
 - ✅ AWS AppConfig統合（最新のAppConfigData API使用）
 - ✅ AppConfig Agentと直接SDKの併存サポート
-- ✅ 全データ型のサポート（boolean、string、number、object）
+- ✅ 全データ型のサポート（boolean、string、number、object） - 注意: AWS AppConfigはネイティブでboolean、string、number、配列をサポートしています。オブジェクト型はJSON文字列として保存し、クライアント側でパースします。
 - ✅ 包括的なエラーハンドリング
 - ✅ 型変換とバリデーション
 - ✅ モックを使用したユニットテスト
@@ -204,12 +204,11 @@ bundle exec rake test
   "feature-flag": true,
   "welcome-message": "Hello World!",
   "max-retries": 5,
-  "user-config": {
-    "theme": "dark",
-    "language": "en"
-  }
+  "user-config": "{\"theme\": \"dark\", \"language\": \"en\"}"
 }
 ```
+
+**注意**: AWS AppConfigはネイティブでboolean、string、number、配列をサポートしています。オブジェクト型については、AWS AppConfigにJSON文字列として保存してください。プロバイダーは`get_object_value()`を使用する際に自動的にJSON文字列をオブジェクトにパースします。
 
 ### AWS AppConfigセットアップ
 

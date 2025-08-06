@@ -6,7 +6,7 @@ A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature f
 
 - ✅ Full OpenFeature specification compliance
 - ✅ AWS AppConfig integration using the latest AppConfigData API
-- ✅ Support for all data types (boolean, string, number, object)
+- ✅ Support for all data types (boolean, string, number, object) - Note: AWS AppConfig natively supports boolean, string, number, and arrays. Object types are handled by storing JSON strings and parsing them client-side.
 - ✅ **Multi-variant feature flags with targeting rules**
 - ✅ **Advanced targeting operators (equals, contains, starts_with, etc.)**
 - ✅ **Complex targeting conditions with multiple attributes**
@@ -224,12 +224,11 @@ bundle exec rake test
   "feature-flag": true,
   "welcome-message": "Hello World!",
   "max-retries": 5,
-  "user-config": {
-    "theme": "dark",
-    "language": "en"
-  }
+  "user-config": "{\"theme\": \"dark\", \"language\": \"en\"}"
 }
 ```
+
+**Note**: AWS AppConfig natively supports boolean, string, number, and arrays. For object types, store them as JSON strings in AWS AppConfig. The provider will automatically parse JSON strings into objects when using `get_object_value()`.
 
 ### Multi-Variant Feature Flags
 

@@ -78,18 +78,24 @@ module Openfeature
 
             def test_agent_mode_integration_multi_variant_flag
               provider = IntegrationTestHelper.create_agent_provider
-
-              # Test multi-variant flag with context
-              context = OpenFeature::SDK::EvaluationContext.new(
-                targeting_key: "user-123",
-                attributes: { "language" => "ja" }
-              )
+              context = create_test_context
 
               result = provider.resolve_string_value(
                 flag_key: "test-multi-variant-flag",
                 context: context
               )
 
+              assert_multi_variant_result(result)
+            end
+
+            def create_test_context
+              OpenFeature::SDK::EvaluationContext.new(
+                targeting_key: "user-123",
+                attributes: { "language" => "ja" }
+              )
+            end
+
+            def assert_multi_variant_result(result)
               assert_kind_of(OpenFeature::SDK::EvaluationDetails, result)
               assert_equal "test-multi-variant-flag", result.flag_key
               # In Agent mode, the server handles targeting and returns a string representation
@@ -107,6 +113,10 @@ module Openfeature
               # Test multi-variant flag without context (should use default)
               result = provider.resolve_string_value(flag_key: "test-multi-variant-flag")
 
+              assert_multi_variant_default_result(result)
+            end
+
+            def assert_multi_variant_default_result(result)
               assert_kind_of(OpenFeature::SDK::EvaluationDetails, result)
               assert_equal "test-multi-variant-flag", result.flag_key
               # In Agent mode, we get a string representation of the multi-variant structure
@@ -159,7 +169,7 @@ module Openfeature
 
               assert_kind_of(OpenFeature::SDK::EvaluationDetails, result)
               assert_equal "non-existent-flag", result.flag_key
-              assert_equal false, result.resolution_details.value
+              refute result.resolution_details.value
               # Agent mode returns DEFAULT for non-existent flags (no error)
               assert_equal "DEFAULT", result.resolution_details.reason
             end

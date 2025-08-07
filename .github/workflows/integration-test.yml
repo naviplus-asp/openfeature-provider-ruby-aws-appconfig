@@ -1,52 +1,16 @@
-name: CI
+name: Integration Test
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  rubocop:
-    name: RuboCop
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: true
-
-      - name: Run RuboCop
-        run: bundle exec rubocop
-
-  test:
-    name: Unit Test (Ruby ${{ matrix.ruby-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ruby-version: ['3.1', '3.2', '3.3', '3.4']
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby-version }}
-          bundler-cache: true
-
-      - name: Run unit tests
-        run: bundle exec rake test_unit
-
   integration-test:
-    name: Integration Test
+    name: Integration Test with Mock AppConfig Server
     runs-on: ubuntu-latest
-    needs: [test]
 
     steps:
       - name: Checkout code

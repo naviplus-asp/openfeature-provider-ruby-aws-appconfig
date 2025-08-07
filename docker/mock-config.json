@@ -1,0 +1,52 @@
+{
+  "test-boolean-flag": true,
+  "test-string-flag": "Hello from Agent",
+  "test-number-flag": 42,
+  "test-object-flag": "{\"theme\": \"dark\", \"language\": \"en\"}",
+  "test-multi-variant-flag": {
+    "variants": [
+      { "name": "english", "value": "Hello World" },
+      { "name": "japanese", "value": "こんにちは世界" },
+      { "name": "spanish", "value": "Hola Mundo" }
+    ],
+    "defaultVariant": "english",
+    "targetingRules": [
+      {
+        "conditions": [
+          { "attribute": "language", "operator": "equals", "value": "ja" }
+        ],
+        "variant": "japanese"
+      },
+      {
+        "conditions": [
+          { "attribute": "language", "operator": "equals", "value": "es" }
+        ],
+        "variant": "spanish"
+      }
+    ]
+  },
+  "test-complex-targeting-flag": {
+    "variants": [
+      { "name": "none", "value": 0 },
+      { "name": "standard", "value": 10 },
+      { "name": "premium", "value": 25 },
+      { "name": "vip", "value": 50 }
+    ],
+    "defaultVariant": "none",
+    "targetingRules": [
+      {
+        "conditions": [
+          { "attribute": "plan", "operator": "equals", "value": "premium" },
+          { "attribute": "country", "operator": "equals", "value": "US" }
+        ],
+        "variant": "premium"
+      },
+      {
+        "conditions": [
+          { "attribute": "plan", "operator": "equals", "value": "vip" }
+        ],
+        "variant": "vip"
+      }
+    ]
+  }
+}

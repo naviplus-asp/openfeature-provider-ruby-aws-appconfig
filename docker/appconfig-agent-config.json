@@ -1,0 +1,22 @@
+{
+  "applications": [
+    {
+      "name": "test-integration-app",
+      "environments": [
+        {
+          "name": "test-integration-env",
+          "configurationProfiles": [
+            {
+              "name": "test-integration-profile",
+              "locationUri": "hosted",
+              "type": "AWS.AppConfig.FeatureFlags"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "logLevel": "INFO",
+  "port": 2772,
+  "host": "0.0.0.0"
+}

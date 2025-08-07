@@ -24,16 +24,24 @@ def agent_running?
   require "net/http"
   require "uri"
 
-  uri = URI.parse("http://localhost:2772/applications/test-integration-app/" \
-                  "environments/test-integration-env/configurations/test-integration-profile")
-  http = Net::HTTP.new(uri.host, uri.port)
-  http.read_timeout = 5
-  http.open_timeout = 5
-
+  uri = build_agent_uri
+  http = create_http_client(uri)
   response = http.get(uri.path)
   response.is_a?(Net::HTTPSuccess) || response.is_a?(Net::HTTPNotFound)
 rescue StandardError
   false
+end
+
+def build_agent_uri
+  URI.parse("http://localhost:2772/applications/test-integration-app/" \
+            "environments/test-integration-env/configurations/test-integration-profile")
+end
+
+def create_http_client(uri)
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.read_timeout = 5
+  http.open_timeout = 5
+  http
 end
 
 unless agent_running?

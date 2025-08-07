@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  appconfig-agent:
+    image: public.ecr.aws/aws-appconfig/aws-appconfig-agent:latest
+    container_name: appconfig-agent
+    ports:
+      - "2772:2772"
+    environment:
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+    volumes:
+      - ./docker/appconfig-agent-config.json:/etc/appconfig/agent-config.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2772/applications/test-integration-app/environments/test-integration-env/configurations/test-integration-profile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a simple HTTP server for testing without AWS credentials
+  mock-appconfig-server:
+    image: nginx:alpine
+    container_name: mock-appconfig-server
+    ports:
+      - "2773:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/mock-config.json:/usr/share/nginx/html/applications/test-integration-app/environments/test-integration-env/configurations/test-integration-profile:ro
+    restart: unless-stopped
+    profiles:
+      - mock

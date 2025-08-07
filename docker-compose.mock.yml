@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  mock-appconfig-server:
+    image: nginx:alpine
+    container_name: mock-appconfig-server
+    ports:
+      - "2772:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/mock-config.json:/usr/share/nginx/html/applications/test-integration-app/environments/test-integration-env/configurations/test-integration-profile:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/applications/test-integration-app/environments/test-integration-env/configurations/test-integration-profile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

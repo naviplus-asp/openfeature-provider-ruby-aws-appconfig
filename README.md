@@ -14,6 +14,9 @@ A Ruby provider for OpenFeature that integrates with AWS AppConfig for feature f
 - ✅ Comprehensive error handling
 - ✅ Type conversion and validation
 - ✅ Unit tests with mocking
+- ✅ **Integration tests with AppConfig Agent**
+- ✅ **Docker Compose setup for easy integration testing**
+- ✅ **GitHub Actions CI with integration tests**
 
 ## Installation
 
@@ -133,79 +136,85 @@ user_theme = client.get_object_value("user-theme", {}, context)
 context = OpenFeature::EvaluationContext.new(
   targeting_key: "user-123",
   attributes: {
+    "user_id" => "123",
     "country" => "US",
     "plan" => "premium"
   }
 )
 
-# Resolve flags with context
-personalized_feature = client.get_boolean_value("personalized-feature", false, context)
+# Resolve feature flags with context
+is_feature_enabled = client.get_boolean_value("new-feature", false, context)
 ```
 
-### Direct Provider Usage
+## Testing
 
-```ruby
-# Create provider directly
-provider = Openfeature::Provider::Ruby::Aws::Appconfig::Provider.new(
-  application: "my-application",
-  environment: "production",
-  configuration_profile: "feature-flags",
-  region: "us-east-1"
-)
-
-# Resolve flags directly
-result = provider.resolve_boolean_value("feature-flag")
-puts "Value: #{result.value}"
-puts "Variant: #{result.variant}"
-puts "Reason: #{result.reason}"
-```
-
-## Configuration
-
-### Required Parameters
-
-- `application`: The AWS AppConfig application name
-- `environment`: The AWS AppConfig environment name
-- `configuration_profile`: The AWS AppConfig configuration profile name
-
-### Optional Parameters
-
-- `region`: AWS region (default: "us-east-1")
-- `credentials`: AWS credentials (default: uses AWS SDK default credential chain)
-- `endpoint_url`: Custom endpoint URL (useful for testing with custom endpoints)
-
-## Development
-
-### Prerequisites
-
-- Ruby 3.1 or higher
-- AWS CLI (optional, for AWS AppConfig testing)
-
-### Setup
-
-1. Clone the repository:
+### Unit Tests (with mocking)
 ```bash
-git clone <repository-url>
-cd openfeature-provider-ruby-aws-appconfig
+bundle exec rake test_unit
 ```
 
-2. Install dependencies:
+### Integration Tests (with AppConfig Agent)
+
+#### Option 1: Using Docker Compose (Recommended)
+
+We provide Docker Compose configurations for easy integration testing:
+
 ```bash
-bundle install
+# Start integration test environment
+./scripts/start-integration-tests.sh
 ```
 
+This script will:
+1. Check if Docker is running
+2. Verify port availability
+3. Let you choose between:
+   - Real AppConfig Agent (requires AWS credentials)
+   - Mock server (no AWS credentials required)
+4. Start the appropriate service
+5. Verify the service is responding
 
+#### Option 2: Manual Setup
 
-### Running Tests
+If you prefer to set up manually:
 
-#### Unit Tests (with mocking)
+1. **Install and start AppConfig Agent**:
+   ```bash
+   # Install AppConfig Agent (follow AWS documentation)
+   # Start the agent with your AWS credentials
+   ```
+
+2. **Configure test data in AWS AppConfig**:
+   - Create application: `test-integration-app`
+   - Create environment: `test-integration-env`
+   - Create configuration profile: `test-integration-profile`
+   - Deploy test configuration (see `test/integration_test_helper.rb` for expected data)
+
+3. **Run integration tests**:
+   ```bash
+   bundle exec rake test_integration
+   ```
+
+#### Docker Compose Commands
+
 ```bash
-bundle exec rake test:unit
+# Start real AppConfig Agent (requires AWS credentials)
+docker-compose up -d appconfig-agent
+
+# Start mock server (no AWS credentials required)
+docker-compose -f docker-compose.mock.yml up -d
+
+# Stop services
+docker-compose down
+docker-compose -f docker-compose.mock.yml down
+
+# View logs
+docker-compose logs appconfig-agent
+docker-compose -f docker-compose.mock.yml logs mock-appconfig-server
 ```
 
-#### All Tests
+### All Tests
 ```bash
-bundle exec rake test
+bundle exec rake test_all
 ```
 
 ### Test Structure
@@ -214,6 +223,80 @@ bundle exec rake test
   - Use mocking for AWS SDK calls
   - Fast execution
   - No external dependencies
+  - Test both Direct SDK mode and Agent mode with mocks
+
+- **Integration Tests**: Located in `test/openfeature/provider/ruby/aws/integration_test_provider.rb`
+  - Use real AppConfig Agent or mock server
+  - Test actual HTTP communication
+  - Require AppConfig Agent to be running
+  - Test real configuration retrieval and targeting
+
+### Running Integration Tests
+
+#### Using the Setup Script
+
+```bash
+# Start the integration test environment
+./scripts/start-integration-tests.sh
+
+# Choose your preferred mode when prompted
+# Then run the tests
+bundle exec rake test_integration
+```
+
+#### Manual Docker Setup
+
+```bash
+# For mock server (no AWS credentials needed)
+docker-compose -f docker-compose.mock.yml up -d
+
+# For real AppConfig Agent (requires AWS credentials)
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_REGION=us-east-1
+docker-compose up -d appconfig-agent
+
+# Run tests
+bundle exec rake test_integration
+```
+
+## Continuous Integration
+
+### GitHub Actions
+
+This project includes comprehensive CI/CD with GitHub Actions:
+
+- **RuboCop**: Code style and quality checks
+- **Unit Tests**: Multi-Ruby version testing (3.1, 3.2, 3.3, 3.4)
+- **Integration Tests**: Automated integration testing with mock AppConfig server
+
+#### CI Workflow
+
+The CI pipeline runs on every push and pull request:
+
+1. **RuboCop**: Code style validation
+2. **Unit Tests**: Tests across multiple Ruby versions
+3. **Integration Tests**:
+   - Sets up mock AppConfig server using Docker
+   - Runs integration tests against the mock server
+   - Verifies all functionality works with real HTTP communication
+
+#### Viewing CI Results
+
+- Go to the [Actions tab](https://github.com/naviplus-asp/openfeature-provider-ruby-aws-appconfig/actions) in the repository
+- Each workflow run shows detailed results for all test stages
+- Integration test logs include mock server setup and test execution details
+
+#### Local CI Testing
+
+To test the CI workflow locally:
+
+```bash
+# Run the same tests as CI
+bundle exec rubocop
+bundle exec rake test_unit
+bundle exec rake test_integration
+```
 
 ## AWS AppConfig Configuration
 
